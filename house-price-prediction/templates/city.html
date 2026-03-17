@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}Select City{% endblock %}
+{% block content %}
+<div class="container" style="margin-top:40px;">
+  <div class="breadcrumb">Step 1 of 4 — <span>Select city</span></div>
+  <h1>Which city?</h1>
+  <p class="subtitle">Select the city where you want to check property prices</p>
+  <form method="post" id="cityForm">
+    <input type="hidden" name="city" id="cityInput">
+    <div class="city-grid">
+      {% set emojis = {'Bangalore':'🌿','Mumbai':'🌊','Delhi':'🏛️','Hyderabad':'💎','Chennai':'☀️','Kolkata':'🌸'} %}
+      {% for city in cities %}
+      <div class="city-card" onclick="selectCity('{{ city }}', this)">
+        <span class="city-emoji">{{ emojis.get(city, '🏙️') }}</span>
+        <span class="city-name">{{ city }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    <div style="display:flex;gap:12px;margin-top:20px;">
+      <a href="{{ url_for('login') }}" class="btn btn-secondary" style="flex:1;text-align:center;">← Back</a>
+      <button type="submit" class="btn" style="flex:2;" id="nextBtn" disabled>Next →</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function selectCity(city, el) {
+  document.querySelectorAll('.city-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('cityInput').value = city;
+  document.getElementById('nextBtn').disabled = false;
+}
+</script>
+{% endblock %}
