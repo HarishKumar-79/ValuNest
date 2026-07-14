@@ -1,0 +1,319 @@
+{% extends "base.html" %}
+{% block title %}My Properties Map{% endblock %}
+{% block content %}
+<div class="container wide" style="margin-top:40px;">
+  <div class="breadcrumb"><a href="{{ url_for('select_city') }}" style="color:#43a047;">Home</a> › <span>My Properties Map</span></div>
+  <h1>📍 My Properties on Map</h1>
+  <p class="subtitle">Exact Google Maps location of all your confirmed properties</p>
+
+  {% if properties %}
+
+  <!-- Controls row -->
+  <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">
+    <div style="display:flex;gap:8px;">
+      <button onclick="setLayer('satellite')" id="btn_satellite"
+        style="padding:8px 18px;border-radius:20px;border:2px solid #2e7d32;background:#2e7d32;color:white;cursor:pointer;font-size:14px;font-weight:bold;">
+        🛰 Satellite
+      </button>
+      <button onclick="setLayer('street')" id="btn_street"
+        style="padding:8px 18px;border-radius:20px;border:2px solid #c8e6c9;background:white;color:#2e7d32;cursor:pointer;font-size:14px;font-weight:bold;">
+        🗺 Street
+      </button>
+      <button onclick="setLayer('hybrid')" id="btn_hybrid"
+        style="padding:8px 18px;border-radius:20px;border:2px solid #c8e6c9;background:white;color:#2e7d32;cursor:pointer;font-size:14px;font-weight:bold;">
+        🌐 Hybrid
+      </button>
+    </div>
+    <div style="margin-left:auto;font-size:13px;color:#aaa;">
+      {{ properties|length }} propert{{ 'y' if properties|length==1 else 'ies' }} found
+    </div>
+  </div>
+
+  <!-- Property cards -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;margin-bottom:18px;">
+    {% for p in properties %}
+    <div onclick="focusProperty({{ loop.index0 }})"
+         style="background:white;border:2px solid #c8e6c9;border-radius:14px;padding:14px;
+                cursor:pointer;transition:all 0.2s;"
+         onmouseover="this.style.borderColor='#2e7d32';this.style.transform='translateY(-2px)'"
+         onmouseout="this.style.borderColor='#c8e6c9';this.style.transform='translateY(0)'">
+      <div style="font-size:20px;margin-bottom:6px;">🏠</div>
+      <div style="font-size:13px;font-weight:bold;color:#1b5e20;margin-bottom:2px;">{{ p.location }}</div>
+      <div style="font-size:12px;color:#888;">{{ p.city }}</div>
+      <div style="font-size:14px;font-weight:bold;color:#2e7d32;margin-top:6px;">₹ {{ "{:,.0f}".format(p.price) }}</div>
+      <div style="font-size:11px;color:#aaa;margin-top:3px;">{{ p.paid_at[:10] if p.paid_at else 'N/A' }}</div>
+      <div style="margin-top:8px;display:flex;gap:6px;">
+        <button onclick="event.stopPropagation();shareLocation({{ loop.index0 }})"
+          style="flex:1;padding:5px 0;background:#e8f5e9;color:#2e7d32;border:none;
+                 border-radius:8px;cursor:pointer;font-size:11px;font-weight:bold;">
+          🔗 Share
+        </button>
+        <button onclick="event.stopPropagation();openInMaps({{ loop.index0 }})"
+          style="flex:1;padding:5px 0;background:#e3f2fd;color:#1565c0;border:none;
+                 border-radius:8px;cursor:pointer;font-size:11px;font-weight:bold;">
+          📍 Open
+        </button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Map -->
+  <div id="map" style="width:100%;height:520px;border-radius:20px;border:2px solid #c8e6c9;overflow:hidden;"></div>
+
+  <!-- Share modal -->
+  <div id="shareModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);
+       z-index:9999;align-items:center;justify-content:center;">
+    <div style="background:white;border-radius:20px;padding:28px;width:380px;max-width:90vw;">
+      <h2 style="font-size:18px;color:#1b5e20;margin-bottom:6px;">🔗 Share property location</h2>
+      <p id="shareAddr" style="font-size:14px;color:#888;margin-bottom:16px;"></p>
+
+      <div style="background:#f9fdf9;border:1.5px solid #c8e6c9;border-radius:12px;
+                  padding:12px 14px;margin-bottom:16px;display:flex;align-items:center;gap:10px;">
+        <input id="shareUrl" type="text" readonly
+          style="flex:1;border:none;background:transparent;font-size:13px;color:#333;outline:none;">
+        <button onclick="copyLink()"
+          style="padding:6px 14px;background:#2e7d32;color:white;border:none;
+                 border-radius:8px;cursor:pointer;font-size:13px;font-weight:bold;">
+          Copy
+        </button>
+      </div>
+
+      <p style="font-size:13px;color:#888;margin-bottom:14px;">Share via:</p>
+      <div style="display:flex;gap:10px;margin-bottom:20px;">
+        <button onclick="shareVia('whatsapp')"
+          style="flex:1;padding:10px;background:#25d366;color:white;border:none;
+                 border-radius:10px;cursor:pointer;font-size:13px;font-weight:bold;">
+          WhatsApp
+        </button>
+        <button onclick="shareVia('telegram')"
+          style="flex:1;padding:10px;background:#0088cc;color:white;border:none;
+                 border-radius:10px;cursor:pointer;font-size:13px;font-weight:bold;">
+          Telegram
+        </button>
+        <button onclick="shareVia('copy')"
+          style="flex:1;padding:10px;background:#f39c12;color:white;border:none;
+                 border-radius:10px;cursor:pointer;font-size:13px;font-weight:bold;">
+          Copy Link
+        </button>
+      </div>
+
+      <button onclick="closeShare()"
+        style="width:100%;padding:10px;background:#f5f5f5;color:#555;border:none;
+               border-radius:10px;cursor:pointer;font-size:14px;">
+        Close
+      </button>
+    </div>
+  </div>
+
+  {% else %}
+  <div style="text-align:center;padding:60px 0;color:#aaa;">
+    <div style="font-size:56px;margin-bottom:16px;">🛰️</div>
+    <p style="font-size:18px;">No confirmed properties yet.</p>
+    <p style="font-size:14px;margin-top:8px;">Purchase a property to see it on the satellite map.</p>
+    <a href="{{ url_for('select_city') }}" class="btn" style="margin-top:20px;display:inline-block;">Browse Properties →</a>
+  </div>
+  {% endif %}
+
+  <div style="margin-top:20px;">
+    <a href="{{ url_for('user_history') }}" class="btn btn-secondary">← Back to History</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if properties %}
+<script>
+const properties = {{ properties | tojson }};
+let map, markers = [], currentLayer;
+
+const link = document.createElement('link');
+link.rel = 'stylesheet';
+link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+document.head.appendChild(link);
+
+const script = document.createElement('script');
+script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+script.onload = function() {
+
+  // Geocode using Nominatim (free, exact location)
+  async function geocode(location, city) {
+    const query = encodeURIComponent(`${location}, ${city}, India`);
+    const url = `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1`;
+    try {
+      const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+      const data = await res.json();
+      if (data.length > 0) return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+    } catch(e) {}
+    return null;
+  }
+
+  const cityCoords = {
+    'Bangalore': [12.9716, 77.5946], 'Mumbai': [19.0760, 72.8777],
+    'Delhi': [28.7041, 77.1025], 'Hyderabad': [17.3850, 78.4867],
+    'Chennai': [13.0827, 80.2707], 'Kolkata': [22.5726, 88.3639]
+  };
+
+  const first = properties[0];
+  const defaultCoord = cityCoords[first.city] || [20.5937, 78.9629];
+  map = L.map('map').setView(defaultCoord, 13);
+
+  const layers = {
+    satellite: L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      { attribution: '© Esri — Satellite', maxZoom: 19 }
+    ),
+    street: L.tileLayer(
+      'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      { attribution: '© OpenStreetMap', maxZoom: 19 }
+    ),
+    hybrid: L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      { attribution: '© Esri', maxZoom: 19 }
+    )
+  };
+
+  const labelOverlay = L.tileLayer(
+    'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    { attribution: '', maxZoom: 19, opacity: 0.4 }
+  );
+
+  currentLayer = layers.satellite;
+  currentLayer.addTo(map);
+
+  const houseIcon = L.divIcon({
+    html: `<div style="background:#2e7d32;color:white;border-radius:50% 50% 50% 0;
+                        width:38px;height:38px;display:flex;align-items:center;
+                        justify-content:center;font-size:18px;border:3px solid white;
+                        box-shadow:0 3px 10px rgba(0,0,0,0.5);transform:rotate(-45deg);">
+             <span style="transform:rotate(45deg);">🏠</span>
+           </div>`,
+    iconSize: [38, 38], iconAnchor: [19, 38], popupAnchor: [0, -40], className: ''
+  });
+
+  // Geocode each property and place marker
+  async function placeMarkers() {
+    for (let i = 0; i < properties.length; i++) {
+      const p = properties[i];
+      let coords = await geocode(p.location, p.city);
+
+      // Fallback to city center with small offset if geocode fails
+      if (!coords) {
+        const base = cityCoords[p.city] || [20.5937, 78.9629];
+        coords = { lat: base[0] + (Math.random()-0.5)*0.1, lng: base[1] + (Math.random()-0.5)*0.1 };
+      }
+
+      // Store exact coords back
+      properties[i].exact_lat = coords.lat;
+      properties[i].exact_lng = coords.lng;
+
+      const mapsUrl = `https://www.google.com/maps?q=${coords.lat},${coords.lng}`;
+      const marker = L.marker([coords.lat, coords.lng], { icon: houseIcon })
+        .addTo(map)
+        .bindPopup(`
+          <div style="min-width:210px;font-family:Arial,sans-serif;">
+            <div style="font-size:15px;font-weight:bold;color:#1b5e20;margin-bottom:4px;">🏠 ${p.location}</div>
+            <div style="font-size:12px;color:#666;margin-bottom:6px;">📍 ${p.city}</div>
+            <div style="font-size:17px;font-weight:bold;color:#2e7d32;margin-bottom:4px;">
+              ₹ ${p.price.toLocaleString('en-IN')}
+            </div>
+            <div style="font-size:11px;color:#aaa;margin-bottom:10px;">
+              Paid: ${p.paid_at ? p.paid_at.slice(0,10) : 'N/A'}
+            </div>
+            <div style="font-size:11px;color:#888;margin-bottom:10px;">
+              📌 ${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}
+            </div>
+            <div style="display:flex;gap:6px;">
+              <a href="${mapsUrl}" target="_blank"
+                style="flex:1;padding:6px;background:#1565c0;color:white;text-decoration:none;
+                       border-radius:8px;text-align:center;font-size:12px;font-weight:bold;">
+                📍 Google Maps
+              </a>
+              <button onclick="shareLocation(${i})"
+                style="flex:1;padding:6px;background:#2e7d32;color:white;border:none;
+                       border-radius:8px;cursor:pointer;font-size:12px;font-weight:bold;">
+                🔗 Share
+              </button>
+            </div>
+          </div>
+        `, { maxWidth: 260 });
+
+      markers.push(marker);
+
+      // Fly to first marker after placing
+      if (i === 0) {
+        map.flyTo([coords.lat, coords.lng], 15, { animate: true, duration: 1.5 });
+        setTimeout(() => marker.openPopup(), 1600);
+      }
+    }
+  }
+
+  placeMarkers();
+
+  window.focusProperty = function(idx) {
+    const p = properties[idx];
+    if (p.exact_lat) {
+      map.flyTo([p.exact_lat, p.exact_lng], 17, { animate: true, duration: 1.2 });
+      setTimeout(() => markers[idx] && markers[idx].openPopup(), 1300);
+    }
+  };
+
+  window.openInMaps = function(idx) {
+    const p = properties[idx];
+    if (p.exact_lat) {
+      window.open(`https://www.google.com/maps?q=${p.exact_lat},${p.exact_lng}`, '_blank');
+    } else {
+      window.open(`https://www.google.com/maps/search/${encodeURIComponent(p.location+', '+p.city+', India')}`, '_blank');
+    }
+  };
+
+  window.setLayer = function(type) {
+    map.removeLayer(currentLayer);
+    if (type === 'hybrid') { labelOverlay.addTo(map); }
+    else { if (map.hasLayer(labelOverlay)) map.removeLayer(labelOverlay); }
+    currentLayer = layers[type];
+    currentLayer.addTo(map);
+    ['satellite','street','hybrid'].forEach(t => {
+      const btn = document.getElementById('btn_'+t);
+      btn.style.background = t===type ? '#2e7d32' : 'white';
+      btn.style.color = t===type ? 'white' : '#2e7d32';
+      btn.style.borderColor = t===type ? '#2e7d32' : '#c8e6c9';
+    });
+  };
+
+  window.shareLocation = function(idx) {
+    const p = properties[idx];
+    const lat = p.exact_lat || 0;
+    const lng = p.exact_lng || 0;
+    const mapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+    document.getElementById('shareUrl').value = mapsUrl;
+    document.getElementById('shareAddr').textContent = `${p.location}, ${p.city}`;
+    document.getElementById('shareModal').style.display = 'flex';
+    window._shareUrl = mapsUrl;
+    window._shareText = `🏠 My property at ${p.location}, ${p.city}\n📍 View on map: ${mapsUrl}`;
+  };
+
+  window.shareVia = function(platform) {
+    const url = encodeURIComponent(window._shareUrl);
+    const text = encodeURIComponent(window._shareText);
+    if (platform === 'whatsapp') window.open(`https://wa.me/?text=${text}`);
+    else if (platform === 'telegram') window.open(`https://t.me/share/url?url=${url}&text=${text}`);
+    else copyLink();
+  };
+
+  window.copyLink = function() {
+    navigator.clipboard.writeText(window._shareUrl).then(() => alert('Link copied!')).catch(() => {
+      document.getElementById('shareUrl').select();
+      document.execCommand('copy');
+      alert('Link copied!');
+    });
+  };
+
+  window.closeShare = function() {
+    document.getElementById('shareModal').style.display = 'none';
+  };
+};
+document.head.appendChild(script);
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,322 @@
+{% extends "base.html" %}
+{% block title %}Pay for Booking{% endblock %}
+{% block content %}
+<div class="container" style="margin-top:40px;">
+  <div class="breadcrumb"><a href="{{ url_for('user_history') }}" style="color:#43a047;">My Cart</a> › <span>Pay</span></div>
+  <h1>Complete Payment</h1>
+  <p class="subtitle">Confirm your booking by choosing a payment method</p>
+
+  <div class="summary-box" style="margin-bottom:24px;">
+    <div class="summary-row">
+      <span class="summary-label">Location</span>
+      <span>{{ booking['location'] }}, {{ booking['city'] }}</span>
+    </div>
+    <div class="summary-row">
+      <span class="summary-label">Booking type</span>
+      <span>{{ booking['booking_type'] }}</span>
+    </div>
+    <div class="summary-row">
+      <span class="summary-label">Added to cart</span>
+      <span>{{ booking['booked_at'][:10] }}</span>
+    </div>
+    <div class="summary-row">
+      <span class="summary-label">Amount</span>
+      <span style="color:#2e7d32;font-weight:bold;">₹ {{ "{:,.0f}".format(booking['price']) }}</span>
+    </div>
+  </div>
+
+  <form method="post" id="payForm" onsubmit="return validatePay()">
+    <input type="hidden" name="pay_method" id="methodInput">
+    <input type="hidden" name="txn_id" id="txnInput">
+
+    <p style="font-size:14px;font-weight:bold;color:#388e3c;margin-bottom:12px;">SELECT PAYMENT METHOD</p>
+    <div class="payment-methods" style="margin-bottom:20px;">
+      <div class="payment-option" onclick="selectPayment('UPI', this)">
+        <span class="payment-icon">📱</span>
+        <div class="payment-label">UPI</div>
+        <div style="font-size:12px;color:#888;margin-top:4px;">GPay, PhonePe, Paytm</div>
+      </div>
+      <div class="payment-option" onclick="selectPayment('Net Banking', this)">
+        <span class="payment-icon">🏦</span>
+        <div class="payment-label">Net Banking</div>
+        <div style="font-size:12px;color:#888;margin-top:4px;">Search and pick your bank</div>
+      </div>
+      <div class="payment-option" onclick="selectPayment('Credit / Debit Card', this)">
+        <span class="payment-icon">💳</span>
+        <div class="payment-label">Card</div>
+        <div style="font-size:12px;color:#888;margin-top:4px;">Credit or debit card</div>
+      </div>
+      <div class="payment-option" onclick="selectPayment('EMI', this)">
+        <span class="payment-icon">📅</span>
+        <div class="payment-label">EMI</div>
+        <div style="font-size:12px;color:#888;margin-top:4px;">Easy monthly payments</div>
+      </div>
+    </div>
+
+    <div id="details_Net Banking" class="pay-details" style="display:none;">
+      <div class="step-panel" style="background:#e3f2fd;">
+        <div class="step-label">Net Banking Details</div>
+        <div class="bank-search-row">
+          <div class="form-group">
+            <label>Search bank</label>
+            <input type="text" id="nb_search" placeholder="Type your bank name" oninput="filterBanks('nb_search', 'nb_bank')">
+          </div>
+          <div class="form-group">
+            <label>Select Bank</label>
+            <select id="nb_bank" name="nb_bank"></select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Net Banking Username</label>
+            <input type="text" id="nb_user" placeholder="Your bank username">
+          </div>
+          <div class="form-group">
+            <label>Net Banking Password</label>
+            <div style="position:relative;">
+              <input type="password" id="nb_pass" placeholder="Your bank password" style="padding-right:44px;">
+              <span onclick="tp('nb_pass','e_nb')" id="e_nb"
+                style="position:absolute;right:12px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:17px;">👁</span>
+            </div>
+          </div>
+        </div>
+        <button type="button" class="inline-action" onclick="sendNetBankingOtp()">Verify credentials &amp; send OTP</button>
+        <p id="nbStatus" class="bank-hint">Enter your username and password first. We’ll send an OTP to your mobile number.</p>
+        <div id="nbOtpStep" class="step-panel step-hidden">
+          <div class="step-label">OTP Verification</div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label>OTP (sent to registered mobile)</label>
+            <input type="text" id="nb_otp" name="nb_otp" placeholder="Enter 6-digit OTP" maxlength="6">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="details_EMI" class="pay-details" style="display:none;">
+      <div class="step-panel" style="background:#fff8e1;">
+        <div class="step-label">EMI Details</div>
+        <div class="bank-search-row">
+          <div class="form-group">
+            <label>Search bank</label>
+            <input type="text" id="emi_search" placeholder="Type your bank name" oninput="filterBanks('emi_search', 'emi_bank')">
+          </div>
+          <div class="form-group">
+            <label>Select Bank</label>
+            <select id="emi_bank" name="emi_bank" onchange="updateEmiSummary()"></select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>EMI Tenure</label>
+            <select id="emi_tenure" name="emi_tenure" onchange="updateEmiSummary()">
+              <option value="3">3 months</option>
+              <option value="6">6 months</option>
+              <option value="9">9 months</option>
+              <option value="12">12 months</option>
+              <option value="18">18 months</option>
+              <option value="24">24 months</option>
+              <option value="30">30 months</option>
+              <option value="36">36 months</option>
+              <option value="48">48 months</option>
+              <option value="60">60 months</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Interest rate</label>
+            <input type="text" value="{{ emi_rate }}% per year (set by admin)" disabled>
+          </div>
+        </div>
+        <div class="receipt-emi">
+          <div class="receipt-emi-grid">
+            <div class="receipt-emi-card">
+              <p style="font-size:12px;color:#888;margin-bottom:4px;">Monthly EMI</p>
+              <p id="emiAmount" style="font-size:22px;font-weight:bold;color:#f57f17;">₹ {{ "{:,.0f}".format((booking['price'] / 6)|int) }} / month</p>
+            </div>
+            <div class="receipt-emi-card">
+              <p style="font-size:12px;color:#888;margin-bottom:4px;">Total payable</p>
+              <p id="emiTotalPayable" style="font-size:22px;font-weight:bold;color:#f57f17;">₹ {{ "{:,.0f}".format((booking['price'] / 6)|int * 6) }}</p>
+            </div>
+            <div class="receipt-emi-card">
+              <p style="font-size:12px;color:#888;margin-bottom:4px;">Next EMI date</p>
+              <p id="emiNextDate" style="font-size:16px;font-weight:bold;color:#333;">—</p>
+            </div>
+            <div class="receipt-emi-card">
+              <p style="font-size:12px;color:#888;margin-bottom:4px;">Next EMI amount</p>
+              <p id="emiNextAmount" style="font-size:16px;font-weight:bold;color:#333;">—</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="processingDiv" style="display:none;text-align:center;padding:30px;">
+      <div style="font-size:40px;margin-bottom:12px;">⏳</div>
+      <p style="font-size:16px;color:#2e7d32;font-weight:bold;">Processing payment...</p>
+      <p style="font-size:13px;color:#888;margin-top:6px;">Please do not close this page</p>
+    </div>
+
+    <div style="display:flex;gap:12px;margin-top:20px;" id="btnRow">
+      <a href="{{ url_for('user_history') }}" class="btn btn-secondary" style="flex:1;text-align:center;">← Back</a>
+      <button type="submit" class="btn btn-green" style="flex:2;" id="payBtn" disabled>Confirm Payment →</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const totalPrice = {{ booking['price'] }};
+const EMI_RATE = {{ emi_rate }};
+const bankList = [
+  'State Bank of India (SBI)', 'HDFC Bank', 'ICICI Bank', 'Axis Bank', 'Kotak Mahindra Bank',
+  'Punjab National Bank', 'Bank of Baroda', 'Canara Bank', 'Union Bank of India', 'Bank of India',
+  'Indian Bank', 'Central Bank of India', 'UCO Bank', 'Punjab & Sind Bank', 'IDBI Bank',
+  'IndusInd Bank', 'Yes Bank', 'Federal Bank', 'RBL Bank', 'South Indian Bank',
+  'Karur Vysya Bank', 'City Union Bank', 'Tamilnad Mercantile Bank', 'Karnataka Bank',
+  'Dhanlaxmi Bank', 'Jammu & Kashmir Bank', 'Bandhan Bank', 'AU Small Finance Bank',
+  'Equitas Small Finance Bank', 'Jana Small Finance Bank', 'ESAF Small Finance Bank',
+  'CSB Bank', 'IDFC FIRST Bank', 'DBS Bank', 'HSBC India', 'Deutsche Bank',
+  'Standard Chartered Bank', 'Bank of Maharashtra', 'Lakshmi Vilas Bank'
+];
+let selectedMethod = '';
+let netBankingOtpSent = false;
+
+function tp(id, eid) {
+  const i = document.getElementById(id);
+  const e = document.getElementById(eid);
+  i.type = i.type === 'password' ? 'text' : 'password';
+  e.textContent = i.type === 'password' ? '👁' : '🙈';
+}
+
+function createBankOptions(selectedValue = '') {
+  return ['<option value="">-- Select your bank --</option>']
+    .concat(bankList.map(bank => `<option ${bank === selectedValue ? 'selected' : ''}>${bank}</option>`))
+    .join('');
+}
+
+function populateBanks() {
+  document.getElementById('nb_bank').innerHTML = createBankOptions();
+  document.getElementById('emi_bank').innerHTML = createBankOptions();
+}
+
+function filterBanks(searchId, selectId) {
+  const searchText = document.getElementById(searchId).value.trim().toLowerCase();
+  const select = document.getElementById(selectId);
+  const currentValue = select.value;
+  const matches = bankList.filter(bank => bank.toLowerCase().includes(searchText));
+  select.innerHTML = ['<option value="">-- Select your bank --</option>']
+    .concat(matches.map(bank => `<option ${bank === currentValue ? 'selected' : ''}>${bank}</option>`))
+    .join('');
+}
+
+function selectPayment(method, el) {
+  selectedMethod = method;
+  netBankingOtpSent = false;
+  document.querySelectorAll('.payment-option').forEach(o => o.classList.remove('checked'));
+  el.classList.add('checked');
+  document.getElementById('methodInput').value = method;
+  document.querySelectorAll('.pay-details').forEach(d => d.style.display = 'none');
+  const det = document.getElementById('details_' + method);
+  if (det) det.style.display = 'block';
+  document.getElementById('payBtn').disabled = false;
+  const nbStep = document.getElementById('nbOtpStep');
+  if (nbStep) nbStep.classList.add('step-hidden');
+  const nbStatus = document.getElementById('nbStatus');
+  if (nbStatus) nbStatus.textContent = 'Enter your username and password first. We’ll send an OTP to your mobile number.';
+  updateEmiSummary();
+}
+
+function addMonths(baseDate, months) {
+  const next = new Date(baseDate);
+  next.setMonth(next.getMonth() + months);
+  return next;
+}
+
+function updateEmiSummary() {
+  const tenureSelect = document.getElementById('emi_tenure');
+  if (!tenureSelect) return;
+  const months = parseInt(tenureSelect.value, 10);
+  const annual = EMI_RATE / 100;
+  const rate = annual / 12;
+  const factor = Math.pow(1 + rate, months);
+  const emi = totalPrice * rate * factor / (factor - 1);
+  const emiRounded = Math.round(emi);
+  document.getElementById('emiAmount').textContent = '₹ ' + emiRounded.toLocaleString('en-IN') + ' / month';
+  document.getElementById('emiTotalPayable').textContent = '₹ ' + (emiRounded * months).toLocaleString('en-IN');
+  document.getElementById('emiNextAmount').textContent = '₹ ' + emiRounded.toLocaleString('en-IN');
+  document.getElementById('emiNextDate').textContent = addMonths(new Date(), 1).toLocaleDateString('en-IN', {
+    day:'2-digit', month:'short', year:'numeric'
+  });
+}
+
+async function sendNetBankingOtp() {
+  const bank = document.getElementById('nb_bank').value;
+  const user = document.getElementById('nb_user').value.trim();
+  const pass = document.getElementById('nb_pass').value.trim();
+  if (!bank) return alert('Please select your bank.');
+  if (!user) return alert('Please enter your username.');
+  if (!pass) return alert('Please enter your password.');
+  const response = await fetch('{{ url_for("payment_send_otp") }}', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: new URLSearchParams({ bank })
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || !data.ok) {
+    alert(data.error || 'Unable to send OTP. Please add your mobile number in profile.');
+    return;
+  }
+  netBankingOtpSent = true;
+  document.getElementById('nbOtpStep').classList.remove('step-hidden');
+  document.getElementById('nbStatus').textContent = `OTP sent to your mobile number for ${bank}. Please enter it to continue.`;
+  document.getElementById('nb_otp').focus();
+}
+
+function generateTxnId() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let id = 'TXN';
+  for (let i = 0; i < 12; i++) id += chars[Math.floor(Math.random() * chars.length)];
+  return id;
+}
+
+function validatePay() {
+  const method = selectedMethod;
+  let valid = true;
+  let msg = '';
+
+  if (method === 'UPI') {
+    if (!document.getElementById('upi_id').value.trim()) { msg = 'Please enter your UPI ID.'; valid = false; }
+    else if (!document.getElementById('upi_pin').value.trim()) { msg = 'Please enter your UPI PIN.'; valid = false; }
+  } else if (method === 'Net Banking') {
+    if (!document.getElementById('nb_bank').value) { msg = 'Please select your bank.'; valid = false; }
+    else if (!document.getElementById('nb_user').value.trim()) { msg = 'Please enter your username.'; valid = false; }
+    else if (!document.getElementById('nb_pass').value.trim()) { msg = 'Please enter your password.'; valid = false; }
+    else if (!netBankingOtpSent) { msg = 'Please send and verify the OTP first.'; valid = false; }
+    else if (!document.getElementById('nb_otp').value.trim()) { msg = 'Please enter the OTP.'; valid = false; }
+  } else if (method === 'Credit / Debit Card') {
+    if (!document.getElementById('card_num').value.trim()) { msg = 'Please enter card number.'; valid = false; }
+    else if (!document.getElementById('card_name').value.trim()) { msg = 'Please enter card holder name.'; valid = false; }
+    else if (!document.getElementById('card_exp').value.trim()) { msg = 'Please enter card expiry.'; valid = false; }
+    else if (!document.getElementById('card_cvv').value.trim()) { msg = 'Please enter CVV.'; valid = false; }
+    else if (!document.getElementById('card_otp').value.trim()) { msg = 'Please enter OTP.'; valid = false; }
+  } else if (method === 'EMI') {
+    if (!document.getElementById('emi_bank').value) { msg = 'Please select your bank for EMI.'; valid = false; }
+  }
+
+  if (!valid) { alert(msg); return false; }
+
+  document.getElementById('txnInput').value = generateTxnId();
+  document.getElementById('processingDiv').style.display = 'block';
+  document.getElementById('btnRow').style.display = 'none';
+  document.querySelectorAll('.pay-details').forEach(d => d.style.display = 'none');
+  document.querySelectorAll('.payment-option').forEach(d => d.style.display = 'none');
+  setTimeout(() => document.getElementById('payForm').submit(), 2000);
+  return false;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  populateBanks();
+  updateEmiSummary();
+});
+</script>
+{% endblock %}

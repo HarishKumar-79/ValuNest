@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Messages{% endblock %}
+{% block content %}
+<div class="container wide" style="margin-top:40px;">
+  <div class="breadcrumb"><a href="{{ url_for('admin_dashboard') if role == 'admin' else url_for('index') }}" style="color:#43a047;">Home</a> › <span>Messages</span></div>
+  <h1>Messages</h1>
+  <p class="subtitle">Send and read messages between users and admin</p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start;">
+    <div style="background:white;border:2px solid #c8e6c9;border-radius:18px;padding:20px;">
+      <h2>Send a message</h2>
+      {% if role == 'user' %}
+      <div style="margin-bottom:12px;">
+        <a href="mailto:{{ admin_email }}?subject=HomeFinder%20Support" class="btn btn-secondary" style="padding:8px 14px;font-size:13px;">Email Admin</a>
+      </div>
+      {% endif %}
+      <form method="post" action="{{ url_for('send_message') }}">
+        {% if role == 'admin' %}
+        <div class="form-group">
+          <label>Send to</label>
+          <select name="receiver_id" required>
+            <option value="">Select user</option>
+            {% for u in users %}
+            <option value="{{ u['id'] }}">{{ u['name'] }} ({{ u['email'] }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endif %}
+        <div class="form-group">
+          <label>Subject</label>
+          <input type="text" name="subject" placeholder="Subject" required>
+        </div>
+        <div class="form-group">
+          <label>Message</label>
+          <textarea name="body" rows="5" style="width:100%;padding:13px 16px;border:1.5px solid #c8e6c9;border-radius:14px;background:#f9fdf9;"></textarea>
+        </div>
+        <button type="submit" class="btn btn-green">Send</button>
+      </form>
+    </div>
+
+    <div style="background:white;border:2px solid #c8e6c9;border-radius:18px;padding:20px;">
+      <h2>Inbox</h2>
+      {% if inbox %}
+      <div style="display:flex;flex-direction:column;gap:12px;max-height:520px;overflow:auto;">
+        {% for m in inbox %}
+        <div style="border:1px solid #e8f5e9;border-radius:14px;padding:14px;background:#fdfefe;">
+          <div style="display:flex;justify-content:space-between;gap:12px;">
+            <strong>{{ m['subject'] }}</strong>
+            <span style="font-size:12px;color:#888;">{{ m['created_at'] }}</span>
+          </div>
+          <div style="font-size:12px;color:#2e7d32;margin:4px 0 8px;">From {{ m['sender_name'] }} to {{ m['receiver_name'] or 'Admin' }}</div>
+          <div style="font-size:14px;line-height:1.5;">{{ m['body'] }}</div>
+          {% if role == 'admin' and m['sender_role'] == 'user' %}
+          <div style="margin-top:8px;">
+            <a href="mailto:{{ m['sender_email'] }}?subject=Re:%20{{ m['subject']|urlencode }}" class="btn btn-secondary" style="padding:6px 12px;font-size:12px;">Email Sender</a>
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p style="color:#888;">No messages yet.</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

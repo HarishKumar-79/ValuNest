@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<div style="max-width:860px;margin:30px auto 60px;padding:0 16px;">
+  <div class="breadcrumb"><a href="{{ url_for('index') }}" style="color:#43a047;">Home</a> › <span>Settings</span></div>
+  <h1>Account Settings</h1>
+  <p class="subtitle">Manage your profile, contact info and password</p>
+
+  <form method="post" enctype="multipart/form-data" id="profileForm">
+  <div style="display:grid;grid-template-columns:220px 1fr;gap:22px;align-items:start;">
+
+    <!-- LEFT: Avatar card -->
+    <div style="background:white;border:2px solid #c8e6c9;border-radius:20px;padding:24px;text-align:center;position:sticky;top:80px;">
+      <div style="position:relative;display:inline-block;margin-bottom:14px;">
+        <div id="avatarWrap" style="width:110px;height:110px;border-radius:50%;overflow:hidden;
+              border:3px solid #a5d6a7;background:linear-gradient(135deg,#2e7d32,#66bb6a);
+              display:flex;align-items:center;justify-content:center;margin:0 auto;">
+          {% if user['photo'] %}
+          <img src="{{ url_for('static', filename='uploads/' + user['photo']) }}"
+               style="width:100%;height:100%;object-fit:cover;" alt="photo">
+          {% else %}
+          <span style="font-size:42px;font-weight:bold;color:white;">
+            {{ user['name'][0].upper() }}
+          </span>
+          {% endif %}
+        </div>
+        <!-- Upload + Camera buttons -->
+        <div style="position:absolute;bottom:-4px;right:-4px;display:flex;gap:4px;">
+          <label style="width:28px;height:28px;border-radius:50%;background:#2e7d32;color:white;
+                         display:flex;align-items:center;justify-content:center;cursor:pointer;
+                         border:2px solid white;font-size:12px;" title="Upload photo from gallery">
+            🖼
+            <input type="file" name="photo" accept="image/*" style="display:none;"
+                   onchange="previewPhoto(this)">
+          </label>
+          <button type="button" onclick="openCamera()"
+            style="width:28px;height:28px;border-radius:50%;background:#1565c0;color:white;
+                   border:2px solid white;cursor:pointer;font-size:12px;padding:0;" title="Take photo with camera">
+            📷
+          </button>
+        </div>
+      </div>
+      <div style="font-size:16px;font-weight:bold;color:#1b5e20;">{{ user['name'] }}</div>
+      <div style="font-size:12px;color:#888;margin-top:2px;">{{ user['email'] }}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:12px;">
+        <a href="mailto:{{ admin_email }}?subject=HomeFinder%20Support" class="btn btn-secondary" style="padding:7px 12px;font-size:12px;">Email Admin</a>
+        <a href="{{ url_for('messages') }}" class="btn" style="padding:7px 12px;font-size:12px;background:#1565c0;">Messages</a>
+        <span class="btn btn-green" style="padding:7px 12px;font-size:12px;cursor:default;">Google Auth</span>
+      </div>
+      <div style="margin-top:14px;padding-top:14px;border-top:1px solid #e8f5e9;">
+        <div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;">
+          <span style="color:#888;">Status</span>
+          <span style="background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:20px;font-weight:bold;font-size:11px;">{{ user['status'] }}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;">
+          <span style="color:#888;">Since</span>
+          <span>{{ user['created_at'][:10] if user['created_at'] else 'N/A' }}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;">
+          <span style="color:#888;">ID</span>
+          <span>#{{ user['id'] }}</span>
+        </div>
+      </div>
+      <p style="font-size:10px;color:#bbb;margin-top:10px;">🖼 Gallery · 📷 Camera</p>
+    </div>
+
+    <!-- RIGHT -->
+    <div style="display:flex;flex-direction:column;gap:18px;">
+
+      <!-- Personal Info -->
+      <div style="background:white;border:2px solid #c8e6c9;border-radius:18px;padding:22px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
+          <div style="width:34px;height:34px;border-radius:10px;background:#e8f5e9;display:flex;align-items:center;justify-content:center;font-size:16px;">👤</div>
+          <div>
+            <div style="font-size:15px;font-weight:bold;color:#1b5e20;">Personal information</div>
+            <div style="font-size:11px;color:#aaa;">Name, email and contact details</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="form-group" style="margin:0;"><label>Full name</label><input type="text" name="name" value="{{ user['name'] }}" required></div>
+          <div class="form-group" style="margin:0;"><label>Email address</label><input type="email" name="email" value="{{ user['email'] }}" required></div>
+          <div class="form-group" style="margin:0;"><label>Phone number</label><input type="tel" name="phone" value="{{ user['phone'] or '' }}" placeholder="+91 9876543210"></div>
+          <div class="form-group" style="margin:0;"><label>Date of birth</label><input type="date" name="dob"></div>
+          <div class="form-group" style="margin:0;grid-column:1/-1;"><label>Full address</label><input type="text" name="address" value="{{ user['address'] or '' }}" placeholder="Street, City, State, PIN"></div>
+        </div>
+      </div>
+
+      <!-- Password -->
+      <div style="background:white;border:2px solid #c8e6c9;border-radius:18px;padding:22px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
+          <div style="width:34px;height:34px;border-radius:10px;background:#e8f5e9;display:flex;align-items:center;justify-content:center;font-size:16px;">🔑</div>
+          <div>
+            <div style="font-size:15px;font-weight:bold;color:#1b5e20;">Change password</div>
+            <div style="font-size:11px;color:#aaa;">Leave blank to keep current password</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+          <div class="form-group" style="margin:0;">
+            <label>Current password</label>
+            <div style="position:relative;">
+              <input type="password" name="old_password" id="p1" placeholder="Current" style="padding-right:40px;">
+              <span onclick="tp('p1','e1')" id="e1" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:16px;">👁</span>
+            </div>
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label>New password</label>
+            <div style="position:relative;">
+              <input type="password" name="new_password" id="p2" placeholder="New password" style="padding-right:40px;" oninput="cs(this.value)">
+              <span onclick="tp('p2','e2')" id="e2" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:16px;">👁</span>
+            </div>
+            <div style="height:4px;background:#e0e0e0;border-radius:4px;margin-top:6px;"><div id="sb" style="height:100%;width:0%;border-radius:4px;transition:all 0.3s;"></div></div>
+            <p id="st" style="font-size:11px;margin-top:2px;color:#888;"></p>
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label>Confirm password</label>
+            <div style="position:relative;">
+              <input type="password" name="confirm_password" id="p3" placeholder="Confirm" style="padding-right:40px;">
+              <span onclick="tp('p3','e3')" id="e3" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:16px;">👁</span>
+            </div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-top:12px;background:#f9fdf9;border-radius:10px;padding:10px;">
+          <div id="r1" style="font-size:11px;color:#aaa;">✗ At least 8 characters</div>
+          <div id="r2" style="font-size:11px;color:#aaa;">✗ One uppercase (A-Z)</div>
+          <div id="r3" style="font-size:11px;color:#aaa;">✗ One lowercase (a-z)</div>
+          <div id="r4" style="font-size:11px;color:#aaa;">✗ One number (0-9)</div>
+          <div id="r5" style="font-size:11px;color:#aaa;">✗ One special character</div>
+        </div>
+        {% if pw_errors %}
+        <div style="background:#fff0f0;border:1px solid #f5c6cb;border-radius:10px;padding:10px;margin-top:10px;">
+          {% for e in pw_errors %}<p style="font-size:12px;color:#c0392b;margin:2px 0;">✗ {{ e }}</p>{% endfor %}
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Danger zone -->
+      <div style="background:#fff8f8;border:2px solid #ffcdd2;border-radius:18px;padding:20px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+          <div style="width:34px;height:34px;border-radius:10px;background:#ffebee;display:flex;align-items:center;justify-content:center;font-size:16px;">⚠️</div>
+          <div><div style="font-size:15px;font-weight:bold;color:#c62828;">Danger zone</div></div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;background:white;border-radius:10px;padding:12px 14px;">
+          <div>
+            <div style="font-size:13px;font-weight:bold;">Delete account</div>
+            <div style="font-size:11px;color:#aaa;margin-top:2px;">Permanently delete your account and all data</div>
+          </div>
+          <button type="button" onclick="alert('Please contact admin to delete your account.')"
+            style="background:#e74c3c;color:white;border:none;padding:7px 16px;border-radius:20px;cursor:pointer;font-size:12px;font-weight:bold;">
+            Delete
+          </button>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:12px;">
+        <a href="{{ url_for('index') }}" class="btn btn-secondary" style="flex:1;text-align:center;">← Back</a>
+        <button type="submit" class="btn btn-green" style="flex:2;">Save all changes →</button>
+      </div>
+    </div>
+  </div>
+  </form>
+</div>
+
+<!-- Camera Modal -->
+<div id="cameraModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);
+     z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:white;border-radius:20px;padding:22px;width:380px;max-width:92vw;text-align:center;">
+    <h3 style="color:#1b5e20;margin-bottom:14px;font-size:17px;">📷 Take a Photo</h3>
+    <video id="camVideo" autoplay playsinline
+      style="width:100%;border-radius:12px;background:#000;margin-bottom:12px;max-height:260px;"></video>
+    <canvas id="camCanvas" style="display:none;"></canvas>
+    <div style="display:flex;gap:10px;">
+      <button onclick="capturePhoto()"
+        style="flex:2;padding:11px;background:#2e7d32;color:white;border:none;border-radius:10px;cursor:pointer;font-size:14px;font-weight:bold;">
+        📸 Capture
+      </button>
+      <button onclick="closeCamera()"
+        style="flex:1;padding:11px;background:#f5f5f5;color:#555;border:none;border-radius:10px;cursor:pointer;font-size:14px;">
+        Cancel
+      </button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function tp(id, eid) {
+  const i = document.getElementById(id);
+  const e = document.getElementById(eid);
+  i.type = i.type === 'password' ? 'text' : 'password';
+  e.textContent = i.type === 'password' ? '👁' : '🙈';
+}
+
+function previewPhoto(input) {
+  if (!input.files || !input.files[0]) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    document.getElementById('avatarWrap').innerHTML =
+      `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+  };
+  reader.readAsDataURL(input.files[0]);
+}
+
+let cameraStream = null;
+
+async function openCamera() {
+  const modal = document.getElementById('cameraModal');
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+    document.getElementById('camVideo').srcObject = cameraStream;
+    modal.style.display = 'flex';
+  } catch(e) {
+    alert('Camera access denied. Please allow camera permission in your browser settings.');
+  }
+}
+
+function closeCamera() {
+  if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
+  document.getElementById('cameraModal').style.display = 'none';
+}
+
+function capturePhoto() {
+  const video = document.getElementById('camVideo');
+  const canvas = document.getElementById('camCanvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+  document.getElementById('avatarWrap').innerHTML =
+    `<img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`;
+  canvas.toBlob(blob => {
+    const file = new File([blob], 'camera_photo.jpg', { type: 'image/jpeg' });
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    document.querySelector('input[type="file"][name="photo"]').files = dt.files;
+  }, 'image/jpeg', 0.9);
+  closeCamera();
+}
+
+function cs(pw) {
+  const rules = [
+    {id:'r1', ok: pw.length >= 8},
+    {id:'r2', ok: /[A-Z]/.test(pw)},
+    {id:'r3', ok: /[a-z]/.test(pw)},
+    {id:'r4', ok: /[0-9]/.test(pw)},
+    {id:'r5', ok: /[!@#$%^&*(),.?":{}|<>]/.test(pw)},
+  ];
+  let passed = 0;
+  rules.forEach(r => {
+    const el = document.getElementById(r.id);
+    if (r.ok) { el.style.color = '#2e7d32'; el.textContent = '✓' + el.textContent.slice(1); passed++; }
+    else { el.style.color = '#aaa'; el.textContent = '✗' + el.textContent.slice(1); }
+  });
+  const sb = document.getElementById('sb');
+  const st = document.getElementById('st');
+  sb.style.width = (passed/5*100) + '%';
+  const clrs = ['','#e74c3c','#f39c12','#3498db','#2e7d32','#2e7d32'];
+  const lbls = ['','Weak','Fair','Good','Strong','Very strong ✓'];
+  sb.style.background = clrs[passed] || '#e0e0e0';
+  st.textContent = lbls[passed] || '';
+  st.style.color = clrs[passed] || '#aaa';
+}
+</script>
+{% endblock %}

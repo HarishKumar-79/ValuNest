@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Receipt{% endblock %}
+{% block content %}
+<div class="container" style="margin-top:50px;">
+  <div class="breadcrumb">
+    <a href="{{ url_for('admin_dashboard') if is_admin else url_for('user_history') }}" style="color:#43a047;">Back</a> › <span>Receipt</span>
+  </div>
+  <h1>Transaction Receipt</h1>
+  <p class="subtitle">{{ booking['city'] }}, {{ booking['location'] }}</p>
+
+  <div class="summary-box">
+    <div class="summary-row"><span class="summary-label">Transaction ID</span><span>{{ booking['txn_id'] or 'N/A' }}</span></div>
+    <div class="summary-row"><span class="summary-label">Payment method</span><span>{{ booking['payment_method'] }}</span></div>
+    <div class="summary-row"><span class="summary-label">Paid on</span><span>{{ booking['paid_at'] }}</span></div>
+    <div class="summary-row"><span class="summary-label">Amount</span><span>₹ {{ "{:,.0f}".format(booking['price']) }}</span></div>
+    {% if booking['payment_bank'] %}
+    <div class="summary-row"><span class="summary-label">Bank</span><span>{{ booking['payment_bank'] }}</span></div>
+    {% endif %}
+    {% if booking['emi_tenure'] %}
+    <div class="summary-row"><span class="summary-label">EMI tenure</span><span>{{ booking['emi_tenure'] }} months</span></div>
+    <div class="summary-row"><span class="summary-label">Interest rate</span><span>{{ booking['emi_rate'] }}%</span></div>
+    <div class="summary-row"><span class="summary-label">Monthly EMI</span><span>₹ {{ "{:,.0f}".format(booking['emi_monthly']) }}</span></div>
+    <div class="summary-row"><span class="summary-label">Total payable</span><span>₹ {{ "{:,.0f}".format(booking['emi_total_payable']) }}</span></div>
+    <div class="summary-row"><span class="summary-label">Next EMI date</span><span>{{ booking['emi_next_date'] }}</span></div>
+    {% endif %}
+  </div>
+
+  <div style="display:flex;gap:12px;flex-wrap:wrap;">
+    {% if is_admin %}
+    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">Back to Admin</a>
+    {% else %}
+    <a href="{{ url_for('user_history') }}" class="btn btn-secondary">Back to History</a>
+    {% endif %}
+    <button class="btn btn-green" onclick="window.print()">Print Receipt</button>
+    <button class="btn" style="background:#1565c0;" onclick="shareReceipt()">Share Receipt</button>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function shareReceipt() {
+  const url = window.location.href;
+  if (navigator.share) {
+    navigator.share({ title: 'HomeFinder Receipt', url }).catch(() => {});
+  } else {
+    navigator.clipboard.writeText(url).then(() => alert('Receipt link copied!')).catch(() => alert(url));
+  }
+}
+</script>
+{% endblock %}

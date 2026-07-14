@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}HomeFinder — Find Your Dream Home{% endblock %}
+{% block content %}
+
+<!-- Hero Section -->
+<div style="background:linear-gradient(135deg,#1b5e20 0%,#2e7d32 50%,#388e3c 100%);
+            min-height:480px;display:flex;align-items:center;justify-content:center;
+            text-align:center;padding:60px 20px;position:relative;overflow:hidden;">
+
+  <!-- Background pattern -->
+  <div style="position:absolute;inset:0;opacity:0.05;font-size:80px;
+              display:grid;grid-template-columns:repeat(8,1fr);gap:20px;padding:20px;
+              pointer-events:none;">
+    {% for i in range(40) %}🏠{% endfor %}
+  </div>
+
+  <div style="position:relative;z-index:1;max-width:700px;">
+    <div style="display:inline-block;background:rgba(255,255,255,0.15);
+                border-radius:30px;padding:8px 20px;font-size:14px;color:#a5d6a7;
+                margin-bottom:20px;border:1px solid rgba(255,255,255,0.2);">
+      🤖 ML-powered house price prediction
+    </div>
+    <h1 style="font-size:44px;font-weight:bold;color:white;margin-bottom:16px;line-height:1.2;">
+      Find Your Dream Home<br>
+      <span style="color:#a5d6a7;">at the Right Price</span>
+    </h1>
+    <p style="font-size:17px;color:rgba(255,255,255,0.8);margin-bottom:32px;line-height:1.6;">
+      Predict house prices using AI, browse real listings by budget,<br>
+      and view properties on a satellite map — all in one place.
+    </p>
+    <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;">
+      <a href="{{ url_for('select_city') }}"
+         style="padding:14px 32px;background:white;color:#1b5e20;border-radius:50px;
+                font-size:16px;font-weight:bold;text-decoration:none;
+                box-shadow:0 4px 20px rgba(0,0,0,0.2);transition:all 0.2s;"
+         onmouseover="this.style.transform='translateY(-2px)'"
+         onmouseout="this.style.transform='translateY(0)'">
+        🔍 Search Properties →
+      </a>
+      <a href="{{ url_for('user_history') }}"
+         style="padding:14px 32px;background:rgba(255,255,255,0.15);color:white;
+                border-radius:50px;font-size:16px;font-weight:bold;text-decoration:none;
+                border:2px solid rgba(255,255,255,0.3);">
+        🛒 My Cart
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- Stats bar -->
+<div style="background:white;border-bottom:1px solid #e8f5e9;padding:20px 40px;">
+  <div style="max-width:900px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:20px;text-align:center;">
+    <div>
+      <div style="font-size:26px;font-weight:bold;color:#2e7d32;">32,963</div>
+      <div style="font-size:13px;color:#888;margin-top:2px;">Properties listed</div>
+    </div>
+    <div>
+      <div style="font-size:26px;font-weight:bold;color:#2e7d32;">6</div>
+      <div style="font-size:13px;color:#888;margin-top:2px;">Major cities</div>
+    </div>
+    <div>
+      <div style="font-size:26px;font-weight:bold;color:#2e7d32;">ML</div>
+      <div style="font-size:13px;color:#888;margin-top:2px;">Price prediction</div>
+    </div>
+    <div>
+      <div style="font-size:26px;font-weight:bold;color:#2e7d32;">🛰</div>
+      <div style="font-size:13px;color:#888;margin-top:2px;">Satellite maps</div>
+    </div>
+  </div>
+</div>
+
+<!-- Features section -->
+<div style="max-width:900px;margin:60px auto;padding:0 20px;">
+  <h2 style="text-align:center;font-size:28px;color:#1b5e20;margin-bottom:8px;">How it works</h2>
+  <p style="text-align:center;color:#888;font-size:15px;margin-bottom:40px;">3 simple steps to find your perfect home</p>
+
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:24px;">
+    {% for step, icon, title, desc in [
+      ('01','🏙','Select your city','Choose from Bangalore, Mumbai, Delhi, Hyderabad, Chennai or Kolkata and pick your preferred neighbourhood.'),
+      ('02','🧮','Get price estimate','Enter property details — our ML model trained on 32,963 homes gives you an accurate price estimate instantly.'),
+      ('03','🗺','View on satellite map','See the exact location of your property on a high-resolution satellite map and share it with anyone.')
+    ] %}
+    <div style="background:white;border:2px solid #c8e6c9;border-radius:20px;padding:28px;text-align:center;">
+      <div style="width:48px;height:48px;border-radius:50%;background:#e8f5e9;color:#2e7d32;
+                  font-size:13px;font-weight:bold;display:flex;align-items:center;
+                  justify-content:center;margin:0 auto 14px;">{{ step }}</div>
+      <div style="font-size:36px;margin-bottom:12px;">{{ icon }}</div>
+      <div style="font-size:16px;font-weight:bold;color:#1b5e20;margin-bottom:8px;">{{ title }}</div>
+      <div style="font-size:13px;color:#888;line-height:1.6;">{{ desc }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Cities section -->
+<div style="background:#f1f8e9;padding:60px 20px;">
+  <div style="max-width:900px;margin:0 auto;">
+    <h2 style="text-align:center;font-size:28px;color:#1b5e20;margin-bottom:8px;">Cities we cover</h2>
+    <p style="text-align:center;color:#888;font-size:15px;margin-bottom:36px;">Click to start searching in your city</p>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
+      {% for city, emoji, desc in [
+        ('Bangalore','🌿','IT hub of India'),
+        ('Mumbai','🌊','Financial capital'),
+        ('Delhi','🏛️','The capital city'),
+        ('Hyderabad','💎','City of pearls'),
+        ('Chennai','☀️','Gateway to South'),
+        ('Kolkata','🌸','City of joy')
+      ] %}
+      <a href="{{ url_for('select_city') }}"
+         style="background:white;border:2px solid #c8e6c9;border-radius:18px;padding:22px;
+                text-align:center;text-decoration:none;transition:all 0.2s;display:block;"
+         onmouseover="this.style.borderColor='#2e7d32';this.style.transform='translateY(-3px)';this.style.boxShadow='0 8px 20px rgba(46,125,50,0.15)'"
+         onmouseout="this.style.borderColor='#c8e6c9';this.style.transform='translateY(0)';this.style.boxShadow='none'">
+        <div style="font-size:36px;margin-bottom:8px;">{{ emoji }}</div>
+        <div style="font-size:16px;font-weight:bold;color:#1b5e20;">{{ city }}</div>
+        <div style="font-size:12px;color:#888;margin-top:4px;">{{ desc }}</div>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<!-- CTA -->
+<div style="text-align:center;padding:60px 20px;background:white;">
+  <h2 style="font-size:26px;color:#1b5e20;margin-bottom:12px;">Ready to find your home?</h2>
+  <p style="color:#888;font-size:15px;margin-bottom:28px;">Start searching now — it's completely free</p>
+  <a href="{{ url_for('select_city') }}"
+     style="padding:15px 40px;background:#2e7d32;color:white;border-radius:50px;
+            font-size:16px;font-weight:bold;text-decoration:none;
+            box-shadow:0 4px 20px rgba(46,125,50,0.3);">
+    Get Started →
+  </a>
+</div>
+
+{% endblock %}

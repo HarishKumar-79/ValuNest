@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Admin Profile{% endblock %}
+{% block content %}
+<div class="container wide" style="margin-top:40px;">
+  <div class="breadcrumb"><a href="{{ url_for('admin_dashboard') }}" style="color:#43a047;">Admin</a> › <span>Profile</span></div>
+  <h1>Admin Profile</h1>
+  <p class="subtitle">Profile and security overview for the administrator account</p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
+    <div style="background:white;border:2px solid #c8e6c9;border-radius:18px;padding:22px;">
+      <h2>Identity</h2>
+      <div class="summary-row"><span class="summary-label">Name</span><span>{{ name }}</span></div>
+      <div class="summary-row"><span class="summary-label">Email</span><span>{{ email }}</span></div>
+      <div class="summary-row"><span class="summary-label">Role</span><span>Administrator</span></div>
+    </div>
+    <div style="background:white;border:2px solid #c8e6c9;border-radius:18px;padding:22px;">
+      <h2>Security</h2>
+      <div class="summary-row"><span class="summary-label">Authentication</span><span>Firebase Google sign-in supported</span></div>
+      <div class="summary-row"><span class="summary-label">Activity logs</span><span>{{ recent_logs|length }} recent events</span></div>
+      <div class="summary-row"><span class="summary-label">Users</span><span>{{ total_users }}</span></div>
+    </div>
+  </div>
+
+  <div style="margin-top:18px;">
+    <a href="{{ url_for('settings') }}" class="btn btn-secondary">Settings</a>
+    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-green">Back to dashboard</a>
+    <a href="{{ url_for('messages') }}" class="btn btn-secondary">Messages</a>
+  </div>
+</div>
+{% endblock %}

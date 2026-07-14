@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<div class="container wide" style="margin-top:40px;">
+  <div class="breadcrumb"><a href="{{ url_for('index') if owner.role == 'user' else url_for('admin_dashboard') }}" style="color:#43a047;">Home</a> › <span>Settings</span></div>
+  <h1>{{ 'Admin' if owner.role == 'admin' else 'Account' }} Settings</h1>
+  <p class="subtitle">Privacy, security and account preferences</p>
+
+  <form method="post">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
+      <div style="background:white;border:2px solid #c8e6c9;border-radius:18px;padding:20px;">
+        <h2 style="margin-bottom:12px;">Profile</h2>
+        <div class="form-group">
+          <label>Name</label>
+          <input type="text" value="{{ owner.name }}" disabled>
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="text" value="{{ owner.email }}" disabled>
+        </div>
+        <div class="form-group">
+          <label>Account type</label>
+          <input type="text" value="{{ owner.role|capitalize }}" disabled>
+        </div>
+      </div>
+
+      <div style="background:white;border:2px solid #c8e6c9;border-radius:18px;padding:20px;">
+        <h2 style="margin-bottom:12px;">Security</h2>
+        <div class="form-group">
+          <label>Google authentication</label>
+          <input type="text" value="Firebase Google sign-in is used for account creation and login" disabled>
+        </div>
+        <div class="form-group">
+          <label>Two-step verification</label>
+          <input type="text" value="SMS OTP for payments and login" disabled>
+        </div>
+        {% if owner.role == 'admin' %}
+        <div class="form-group">
+          <label>EMI interest rate (%)</label>
+          <input type="number" name="emi_rate" min="0" step="0.25" value="{{ emi_rate }}">
+        </div>
+        {% else %}
+        <div class="form-group">
+          <label>EMI interest rate</label>
+          <input type="text" value="{{ emi_rate }}% set by admin" disabled>
+        </div>
+        {% endif %}
+        <div class="form-group">
+          <label>Last login activity</label>
+          <input type="text" value="View activity logs in admin dashboard / user history" disabled>
+        </div>
+      </div>
+
+      <div style="background:white;border:2px solid #c8e6c9;border-radius:18px;padding:20px;">
+        <h2 style="margin-bottom:12px;">Privacy</h2>
+        <div class="form-group">
+          <label>Profile visibility</label>
+          <select name="profile_visibility">
+            <option>Private</option>
+            <option selected>Account only</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Data sharing</label>
+          <select name="data_sharing">
+            <option selected>Minimal</option>
+            <option>Standard</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="background:white;border:2px solid #c8e6c9;border-radius:18px;padding:20px;">
+        <h2 style="margin-bottom:12px;">Preferences</h2>
+        <div class="form-group">
+          <label>Notifications</label>
+          <select name="notifications">
+            <option selected>Email + SMS</option>
+            <option>Email only</option>
+            <option>Off</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Theme</label>
+          <select name="theme">
+            <option selected>System</option>
+            <option>Light</option>
+            <option>Dark</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:12px;margin-top:20px;flex-wrap:wrap;">
+      <a href="{{ url_for('admin_dashboard') if owner.role == 'admin' else url_for('profile') }}" class="btn btn-secondary">Back</a>
+      <button type="submit" class="btn btn-green">Save settings</button>
+      <a href="{{ url_for('messages') }}" class="btn btn-secondary">Messages</a>
+      <a href="mailto:{{ admin_email }}?subject=HomeFinder%20Support" class="btn btn-secondary">Email Admin</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

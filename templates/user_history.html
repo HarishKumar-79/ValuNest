@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}My History{% endblock %}
+{% block content %}
+<div class="container wide" style="margin-top:40px;">
+
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+    <div>
+      <h1>My Activity</h1>
+      <p class="subtitle" style="margin-bottom:0;">Welcome, {{ name }} — your cart and purchase history</p>
+    </div>
+    <a href="{{ url_for('select_city') }}" class="btn btn-secondary" style="padding:10px 22px;">← Back to Home</a>
+  </div>
+
+  <!-- Cart -->
+  <h2 style="margin-bottom:16px;">🛒 My Cart</h2>
+  {% if cart %}
+  <p style="font-size:14px;color:#888;margin-bottom:16px;">Houses you saved — pay anytime to confirm booking.</p>
+  {% for b in cart %}
+  <div class="listing-card">
+    <div class="listing-header">
+      <div class="listing-location">📍 {{ b['location'] }}, {{ b['city'] }}</div>
+      <div class="listing-price">₹ {{ "{:,.0f}".format(b['price']) }}</div>
+    </div>
+    <div class="listing-tags" style="margin-bottom:14px;">
+      <span class="tag">{{ b['booking_type'] }}</span>
+      <span class="tag" style="background:#fff8e1;color:#f57f17;">⏳ Payment pending</span>
+      <span class="tag" style="background:#f3e5f5;color:#6a1b9a;">Added: {{ b['booked_at'][:10] }}</span>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <a href="{{ url_for('pay_cart', booking_id=b['id']) }}" class="btn btn-green" style="padding:9px 22px;font-size:14px;">
+        💳 Pay Now
+      </a>
+      <form method="post" action="{{ url_for('remove_cart', booking_id=b['id']) }}"
+            onsubmit="return confirm('Remove from cart?')" style="margin:0;">
+        <button type="submit"
+          style="background:#e74c3c;color:white;border:none;padding:9px 18px;border-radius:50px;cursor:pointer;font-size:14px;font-weight:bold;">
+          ✕ Remove
+        </button>
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+  {% else %}
+  <div style="text-align:center;padding:30px;color:#aaa;margin-bottom:24px;background:#f9fdf9;border-radius:16px;border:2px dashed #c8e6c9;">
+    <div style="font-size:36px;margin-bottom:10px;">🛒</div>
+    <p>Your cart is empty. Browse properties and add to cart!</p>
+  </div>
+  {% endif %}
+
+  <!-- Purchased -->
+  <h2 style="margin-top:32px;margin-bottom:16px;">✅ Purchase History</h2>
+  {% if purchased %}
+  {% for b in purchased %}
+  <div class="listing-card">
+    <div class="listing-header">
+      <div class="listing-location">📍 {{ b['location'] }}, {{ b['city'] }}</div>
+      <div class="listing-price">₹ {{ "{:,.0f}".format(b['price']) }}</div>
+    </div>
+    <div class="listing-tags">
+      <span class="tag">{{ b['booking_type'] }}</span>
+      <span class="tag">{{ b['payment_method'] }}</span>
+      <span class="tag" style="background:#e8f5e9;color:#2e7d32;">✓ Confirmed</span>
+      <span class="tag" style="background:#f3e5f5;color:#6a1b9a;">
+        Paid: {{ b['paid_at'][:10] if b['paid_at'] else 'N/A' }}
+      </span>
+      <span class="tag" style="background:#e3f2fd;color:#1565c0;">
+        Booked: {{ b['booked_at'][:10] }}
+      </span>
+      {% if b['txn_id'] %}
+      <span class="tag" style="background:#fff8e1;color:#f57f17;">Txn: {{ b['txn_id'] }}</span>
+      {% endif %}
+    </div>
+    <div style="margin-top:10px;">
+      <a href="{{ url_for('receipt', booking_id=b['id']) }}" class="btn btn-secondary" style="padding:8px 18px;font-size:13px;">View Receipt</a>
+      <button type="button" class="btn" style="padding:8px 18px;font-size:13px;background:#1565c0;" onclick="shareReceipt('{{ url_for('receipt', booking_id=b['id'], _external=True) }}')">Share Receipt</button>
+    </div>
+  </div>
+  {% endfor %}
+  {% else %}
+  <div style="text-align:center;padding:30px;color:#aaa;background:#f9fdf9;border-radius:16px;border:2px dashed #c8e6c9;">
+    <div style="font-size:36px;margin-bottom:10px;">📋</div>
+    <p>No purchases yet.</p>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function shareReceipt(url) {
+  const text = `HomeFinder receipt: ${url}`;
+  if (navigator.share) {
+    navigator.share({ title: 'Receipt', text, url }).catch(() => {});
+  } else {
+    navigator.clipboard.writeText(url).then(() => alert('Receipt link copied!')).catch(() => alert(text));
+  }
+}
+</script>
+{% endblock %}
