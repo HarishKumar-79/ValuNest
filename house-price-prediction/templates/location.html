@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Select Location{% endblock %}
+{% block content %}
+<div class="container" style="margin-top:40px;">
+  <div class="breadcrumb">Step 2 of 4 — <span>Select location in {{ city }}</span></div>
+  <h1>Select a location</h1>
+  <p class="subtitle">Choose your preferred neighbourhood in {{ city }}</p>
+  <form method="post" id="locForm">
+    <input type="hidden" name="location" id="locInput">
+    <div class="form-group">
+      <input type="text" id="search" placeholder="Search locations..." oninput="filterList()" style="margin-bottom:8px;">
+    </div>
+    <div class="location-list" id="locList">
+      {% for loc in locations %}
+      <div class="location-item" onclick="selectLoc('{{ loc }}', this)">{{ loc }}</div>
+      {% endfor %}
+    </div>
+    <div style="display:flex;gap:12px;margin-top:20px;">
+      <a href="{{ url_for('select_city') }}" class="btn btn-secondary" style="flex:1;text-align:center;">← Back</a>
+      <button type="submit" class="btn" style="flex:2;" id="nextBtn" disabled>Next →</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function selectLoc(loc, el) {
+  document.querySelectorAll('.location-item').forEach(i => i.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('locInput').value = loc;
+  document.getElementById('nextBtn').disabled = false;
+}
+function filterList() {
+  const q = document.getElementById('search').value.toLowerCase();
+  document.querySelectorAll('.location-item').forEach(item => {
+    item.style.display = item.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}

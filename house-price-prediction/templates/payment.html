@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Payment{% endblock %}
+{% block content %}
+<div class="container" style="margin-top:40px;">
+  <div class="breadcrumb">{{ city }} › {{ location }} › <span>Payment</span></div>
+  <h1>Payment options</h1>
+  <p class="subtitle">Select how you'd like to pay for your property booking</p>
+
+  <div class="summary-box" style="margin-bottom:24px;">
+    <div class="summary-row">
+      <span class="summary-label">Location</span>
+      <span>{{ location }}, {{ city }}</span>
+    </div>
+    <div class="summary-row">
+      <span class="summary-label">Total amount</span>
+      <span style="color:#2e7d32;font-weight:bold;">&#8377; {{ "{:,.0f}".format(price) }}</span>
+    </div>
+  </div>
+
+  <form method="post" id="payForm">
+    <input type="hidden" name="pay_method" id="methodInput">
+    <p style="font-size:13px;font-weight:bold;color:#388e3c;margin-bottom:12px;">SELECT PAYMENT METHOD</p>
+    <div class="payment-methods">
+      <div class="payment-option" onclick="selectPayment('UPI', this)">
+        <span class="payment-icon">&#128241;</span>
+        <div class="payment-label">UPI</div>
+        <div style="font-size:12px;color:#888;margin-top:4px;">GPay, PhonePe, Paytm</div>
+      </div>
+      <div class="payment-option" onclick="selectPayment('Net Banking', this)">
+        <span class="payment-icon">&#127970;</span>
+        <div class="payment-label">Net banking</div>
+        <div style="font-size:12px;color:#888;margin-top:4px;">All major banks</div>
+      </div>
+      <div class="payment-option" onclick="selectPayment('Credit / Debit Card', this)">
+        <span class="payment-icon">&#128179;</span>
+        <div class="payment-label">Card</div>
+        <div style="font-size:12px;color:#888;margin-top:4px;">Credit or debit card</div>
+      </div>
+      <div class="payment-option" onclick="selectPayment('EMI', this)">
+        <span class="payment-icon">&#128197;</span>
+        <div class="payment-label">EMI</div>
+        <div style="font-size:12px;color:#888;margin-top:4px;">Easy monthly payments</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:12px;margin-top:20px;">
+      <a href="{{ back_url }}" class="btn btn-secondary" style="flex:1;text-align:center;">&#8592; Back</a>
+      <button type="submit" class="btn btn-green" style="flex:2;" id="payBtn" disabled>Pay now &#8594;</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function selectPayment(method, el) {
+  document.querySelectorAll('.payment-option').forEach(o => o.classList.remove('checked'));
+  el.classList.add('checked');
+  document.getElementById('methodInput').value = method;
+  document.getElementById('payBtn').disabled = false;
+}
+</script>
+{% endblock %}

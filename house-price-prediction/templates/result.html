@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Price Estimate{% endblock %}
+{% block content %}
+<div class="container result-container" style="margin-top:40px;">
+  <div class="breadcrumb" style="text-align:left;">{{ city }} › {{ location }} › <span>Result</span></div>
+  <p class="result-city">{{ city }} — {{ location }}</p>
+  <h1>Estimated Price</h1>
+  <div class="price-main">₹ {{ "{:,.0f}".format(prediction) }}</div>
+  <div class="price-range">
+    <div class="range-box low">
+      <span class="range-label">Low estimate</span>
+      <span class="range-value">₹ {{ "{:,.0f}".format(low) }}</span>
+    </div>
+    <div style="font-size:20px;color:#ccc;">—</div>
+    <div class="range-box high">
+      <span class="range-label">High estimate</span>
+      <span class="range-value">₹ {{ "{:,.0f}".format(high) }}</span>
+    </div>
+  </div>
+  <p class="range-note">Estimated range is ± 8% of the predicted value</p>
+  <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+    <a href="{{ url_for('predict') }}" class="btn btn-secondary">← Try again</a>
+    <a href="{{ url_for('payment') }}" class="btn btn-green">Proceed to payment →</a>
+  </div>
+</div>
+{% endblock %}

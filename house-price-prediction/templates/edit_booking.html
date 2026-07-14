@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Edit Booking{% endblock %}
+{% block content %}
+<div class="container" style="margin-top:40px;">
+  <div class="breadcrumb"><a href="{{ url_for('admin_dashboard') }}" style="color:#43a047;">Admin</a> › <span>Edit Booking</span></div>
+  <h1>Edit Booking</h1>
+  <p class="subtitle">Update booking #{{ booking['id'] }} for {{ booking['user_name'] }}</p>
+  <form method="post">
+    <div class="form-row">
+      <div class="form-group">
+        <label>City</label>
+        <input type="text" name="city" value="{{ booking['city'] }}" required>
+      </div>
+      <div class="form-group">
+        <label>Location</label>
+        <input type="text" name="location" value="{{ booking['location'] }}" required>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Price (₹)</label>
+        <input type="number" name="price" value="{{ booking['price']|int }}" required>
+      </div>
+      <div class="form-group">
+        <label>Payment Method</label>
+        <select name="payment_method">
+          <option {% if booking['payment_method']=='UPI' %}selected{% endif %}>UPI</option>
+          <option {% if booking['payment_method']=='Net Banking' %}selected{% endif %}>Net Banking</option>
+          <option {% if booking['payment_method']=='Credit / Debit Card' %}selected{% endif %}>Credit / Debit Card</option>
+          <option {% if booking['payment_method']=='EMI' %}selected{% endif %}>EMI</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Booking Status</label>
+      <select name="status">
+        <option value="confirmed" {% if booking['status']=='confirmed' %}selected{% endif %}>Confirmed</option>
+        <option value="cancelled" {% if booking['status']=='cancelled' %}selected{% endif %}>Cancelled</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:12px;margin-top:8px;">
+      <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary" style="flex:1;text-align:center;">← Back</a>
+      <button type="submit" class="btn btn-green" style="flex:2;">Save Changes →</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
