@@ -47,15 +47,91 @@ CITY_COORDS = {
 
 def allowed_file(f): return '.' in f and f.rsplit('.',1)[1].lower() in ALLOWED_EXT
 
+DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
+if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
 def get_db():
-    c = sqlite3.connect(DB)
-    c.row_factory = sqlite3.Row
-    return c
+    if DATABASE_URL:
+        import psycopg2
+        import psycopg2.extras
+        conn = psycopg2.connect(DATABASE_URL)
+        conn.autocommit = False
+        return DatabaseConnectionWrapper(conn, is_postgres=True)
+    else:
+        conn = sqlite3.connect(DB)
+        conn.row_factory = sqlite3.Row
+        return DatabaseConnectionWrapper(conn, is_postgres=False)
+
+class DatabaseConnectionWrapper:
+    def __init__(self, conn, is_postgres=False):
+        self.conn = conn
+        self.is_postgres = is_postgres
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_type is not None:
+            self.conn.rollback()
+        self.conn.close()
+
+    def execute(self, query, params=()):
+        formatted_query = query
+        if self.is_postgres:
+            # Convert SQLite AUTOINCREMENT and placeholder syntax to PostgreSQL
+            formatted_query = formatted_query.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY")
+            formatted_query = formatted_query.replace("INSERT OR IGNORE INTO", "INSERT INTO")
+            formatted_query = formatted_query.replace("?", "%s")
+            
+            cursor = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+            cursor.execute(formatted_query, params)
+            return PostgresCursorWrapper(cursor)
+        else:
+            return self.conn.execute(formatted_query, params)
+
+    def commit(self):
+        self.conn.commit()
+
+    def rollback(self):
+        self.conn.rollback()
+
+class PostgresCursorWrapper:
+    def __init__(self, cursor):
+        self.cursor = cursor
+
+    def fetchone(self):
+        row = self.cursor.fetchone()
+        return PostgresRowWrapper(row) if row is not None else None
+
+    def fetchall(self):
+        rows = self.cursor.fetchall()
+        return [PostgresRowWrapper(r) for r in rows]
+
+    @property
+    def lastrowid(self):
+        return getattr(self.cursor, 'lastrowid', None)
+
+class PostgresRowWrapper:
+    def __init__(self, row):
+        self._row = row
+
+    def __getitem__(self, item):
+        return self._row[item]
+
+    def keys(self):
+        return self._row.keys()
 
 def ensure_column(c, table, column, definition):
-    existing = [row[1] for row in c.execute(f"PRAGMA table_info({table})").fetchall()]
-    if column not in existing:
-        c.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+    if c.is_postgres:
+        res = c.execute("SELECT column_name FROM information_schema.columns WHERE table_name=%s AND column_name=%s", (table, column)).fetchone()
+        if not res:
+            pg_def = definition.replace("TEXT DEFAULT ''", "VARCHAR DEFAULT ''").replace("REAL DEFAULT 0", "DOUBLE PRECISION DEFAULT 0").replace("INTEGER DEFAULT 0", "INT DEFAULT 0")
+            c.execute(f"ALTER TABLE {table} ADD COLUMN {column} {pg_def}")
+    else:
+        existing = [row[1] for row in c.execute(f"PRAGMA table_info({table})").fetchall()]
+        if column not in existing:
+            c.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
 def get_setting(key, default_value=''):
     with get_db() as c:
@@ -64,8 +140,12 @@ def get_setting(key, default_value=''):
 
 def set_setting(key, value):
     with get_db() as c:
-        c.execute("""INSERT INTO app_settings (key, value) VALUES (?, ?)
-                     ON CONFLICT(key) DO UPDATE SET value=excluded.value""", (key, str(value)))
+        if c.is_postgres:
+            c.execute("""INSERT INTO app_settings (key, value) VALUES (%s, %s)
+                         ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value""", (key, str(value)))
+        else:
+            c.execute("""INSERT INTO app_settings (key, value) VALUES (?, ?)
+                         ON CONFLICT(key) DO UPDATE SET value=excluded.value""", (key, str(value)))
         c.commit()
 
 def is_google_email(email):
@@ -317,7 +397,10 @@ def init_db():
         ensure_column(c, "bookings", "emi_next_date", "TEXT DEFAULT ''")
         ensure_column(c, "messages", "sender_email", "TEXT DEFAULT ''")
         ensure_column(c, "messages", "receiver_email", "TEXT DEFAULT ''")
-        c.execute("INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)", ("emi_rate", "12"))
+        if c.is_postgres:
+            c.execute("INSERT INTO app_settings (key, value) VALUES (%s, %s) ON CONFLICT(key) DO NOTHING", ("emi_rate", "12"))
+        else:
+            c.execute("INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)", ("emi_rate", "12"))
         c.commit()
 
 init_db()
