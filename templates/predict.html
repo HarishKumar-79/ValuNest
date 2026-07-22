@@ -1,71 +1,226 @@
 {% extends "base.html" %}
-{% block title %}Predict Price{% endblock %}
+{% block title %}Predict Price — HomeFinder{% endblock %}
+
 {% block content %}
-<div class="container" style="margin-top:40px;">
+<div class="container wide" style="margin-top:40px;">
   <div class="breadcrumb">{{ city }} › {{ location }} › <span>Predict price</span></div>
   <h1>Property details</h1>
-  <p class="subtitle">Fill in the details to get your price estimate</p>
+  <p class="subtitle">Fill in the details below to get your AI-powered price estimate</p>
 
   {% if error %}
-  <div style="background:#fff8e1;border:2px solid #ffe082;color:#795548;border-radius:14px;padding:16px 20px;margin-bottom:20px;font-size:15px;">
+  <div class="flash error" style="margin-bottom:24px;">
     ⚠️ {{ error }}
   </div>
   {% endif %}
 
-  <form method="post">
+  <form method="post" class="predict-form">
     <div class="form-row">
       <div class="form-group">
-        <label>Area (sqft)</label>
-        <input type="number" name="area" placeholder="e.g. 1200" min="100" required>
+        <label for="inputArea">Area (sqft)</label>
+        <div class="input-wrapper">
+          <input type="number" id="inputArea" name="area" class="form-input" placeholder="e.g. 1200" min="100" required>
+        </div>
       </div>
       <div class="form-group">
-        <label>Bedrooms</label>
-        <input type="number" name="bedrooms" placeholder="e.g. 3" min="1" max="9" required>
+        <label for="inputBedrooms">Bedrooms</label>
+        <div class="input-wrapper">
+          <input type="number" id="inputBedrooms" name="bedrooms" class="form-input" placeholder="e.g. 3" min="1" max="9" required>
+        </div>
       </div>
     </div>
+
     <div class="form-row">
       <div class="form-group">
-        <label>Bathrooms</label>
-        <input type="number" name="bathrooms" placeholder="e.g. 2" min="1" max="9" required>
+        <label for="inputBathrooms">Bathrooms</label>
+        <div class="input-wrapper">
+          <input type="number" id="inputBathrooms" name="bathrooms" class="form-input" placeholder="e.g. 2" min="1" max="9" required>
+        </div>
       </div>
       <div class="form-group">
-        <label>Property type</label>
-        <select name="resale">
-          <option value="0">New</option>
-          <option value="1">Resale</option>
+        <label for="selectResale">Property type</label>
+        <select id="selectResale" name="resale" class="form-input">
+          <option value="0">New Construction</option>
+          <option value="1">Resale Property</option>
         </select>
       </div>
     </div>
+
     <div class="form-row">
       <div class="form-group">
-        <label>Car parking</label>
-        <select name="parking">
+        <label for="selectParking">Car parking</label>
+        <select id="selectParking" name="parking" class="form-input">
           <option value="1">Available</option>
           <option value="0">Not available</option>
         </select>
       </div>
       <div class="form-group">
-        <label>Lift</label>
-        <select name="lift">
+        <label for="selectLift">Elevator / Lift</label>
+        <select id="selectLift" name="lift" class="form-input">
           <option value="1">Available</option>
           <option value="0">Not available</option>
         </select>
       </div>
     </div>
-    <div class="amenities-section">
-      <p class="amenities-title">Amenities</p>
-      <div class="checkbox-grid">
-        <label class="checkbox-label"><input type="checkbox" name="gym" value="1"> Gymnasium</label>
-        <label class="checkbox-label"><input type="checkbox" name="pool" value="1"> Swimming pool</label>
-        <label class="checkbox-label"><input type="checkbox" name="security" value="1"> 24x7 Security</label>
-        <label class="checkbox-label"><input type="checkbox" name="power" value="1"> Power backup</label>
-        <label class="checkbox-label"><input type="checkbox" name="club" value="1"> Club house</label>
+
+    <!-- AMENITIES SECTION -->
+    <div class="amenities-container">
+      <div class="amenities-header">
+        <div>
+          <h3 class="amenities-title">Select Amenities</h3>
+          <p class="amenities-subtitle">Choose the premium facilities available in this property</p>
+        </div>
+        <span class="amenities-badge" id="selectedCountBadge">0 Selected</span>
+      </div>
+
+      <div class="amenities-grid">
+        <!-- Gymnasium Card -->
+        <label class="amenity-card">
+          <input type="checkbox" name="gym" value="1" class="amenity-checkbox" onchange="updateAmenitiesState(this)">
+          <div class="amenity-card-content" tabindex="0" role="checkbox" aria-checked="false" keydown="handleAmenityKeydown(event, this)">
+            <div class="amenity-icon-wrapper">
+              <span class="amenity-icon">🏋️‍♂️</span>
+            </div>
+            <div class="amenity-details">
+              <span class="amenity-name">Gymnasium</span>
+              <span class="amenity-desc">Fitness & workout center</span>
+            </div>
+            <div class="amenity-check-indicator">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                <path fill-rule="evenodd" d="M19.916 4.626a.75.75 0 01.208 1.04l-9 13.5a.75.75 0 01-1.154.114l-6-6a.75.75 0 011.06-1.06l5.353 5.353 8.493-12.739a.75.75 0 011.04-.208z" clip-rule="evenodd" />
+              </svg>
+            </div>
+          </div>
+        </label>
+
+        <!-- Swimming Pool Card -->
+        <label class="amenity-card">
+          <input type="checkbox" name="pool" value="1" class="amenity-checkbox" onchange="updateAmenitiesState(this)">
+          <div class="amenity-card-content" tabindex="0" role="checkbox" aria-checked="false" keydown="handleAmenityKeydown(event, this)">
+            <div class="amenity-icon-wrapper">
+              <span class="amenity-icon">🏊‍♂️</span>
+            </div>
+            <div class="amenity-details">
+              <span class="amenity-name">Swimming Pool</span>
+              <span class="amenity-desc">Temperature-controlled pool</span>
+            </div>
+            <div class="amenity-check-indicator">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                <path fill-rule="evenodd" d="M19.916 4.626a.75.75 0 01.208 1.04l-9 13.5a.75.75 0 01-1.154.114l-6-6a.75.75 0 011.06-1.06l5.353 5.353 8.493-12.739a.75.75 0 011.04-.208z" clip-rule="evenodd" />
+              </svg>
+            </div>
+          </div>
+        </label>
+
+        <!-- 24x7 Security Card -->
+        <label class="amenity-card">
+          <input type="checkbox" name="security" value="1" class="amenity-checkbox" onchange="updateAmenitiesState(this)">
+          <div class="amenity-card-content" tabindex="0" role="checkbox" aria-checked="false" keydown="handleAmenityKeydown(event, this)">
+            <div class="amenity-icon-wrapper">
+              <span class="amenity-icon">🛡️</span>
+            </div>
+            <div class="amenity-details">
+              <span class="amenity-name">24x7 Security</span>
+              <span class="amenity-desc">Gated entry & CCTV monitoring</span>
+            </div>
+            <div class="amenity-check-indicator">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                <path fill-rule="evenodd" d="M19.916 4.626a.75.75 0 01.208 1.04l-9 13.5a.75.75 0 01-1.154.114l-6-6a.75.75 0 011.06-1.06l5.353 5.353 8.493-12.739a.75.75 0 011.04-.208z" clip-rule="evenodd" />
+              </svg>
+            </div>
+          </div>
+        </label>
+
+        <!-- Power Backup Card -->
+        <label class="amenity-card">
+          <input type="checkbox" name="power" value="1" class="amenity-checkbox" onchange="updateAmenitiesState(this)">
+          <div class="amenity-card-content" tabindex="0" role="checkbox" aria-checked="false" keydown="handleAmenityKeydown(event, this)">
+            <div class="amenity-icon-wrapper">
+              <span class="amenity-icon">⚡</span>
+            </div>
+            <div class="amenity-details">
+              <span class="amenity-name">Power Backup</span>
+              <span class="amenity-desc">100% generator backup</span>
+            </div>
+            <div class="amenity-check-indicator">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                <path fill-rule="evenodd" d="M19.916 4.626a.75.75 0 01.208 1.04l-9 13.5a.75.75 0 01-1.154.114l-6-6a.75.75 0 011.06-1.06l5.353 5.353 8.493-12.739a.75.75 0 011.04-.208z" clip-rule="evenodd" />
+              </svg>
+            </div>
+          </div>
+        </label>
+
+        <!-- Club House Card -->
+        <label class="amenity-card">
+          <input type="checkbox" name="club" value="1" class="amenity-checkbox" onchange="updateAmenitiesState(this)">
+          <div class="amenity-card-content" tabindex="0" role="checkbox" aria-checked="false" keydown="handleAmenityKeydown(event, this)">
+            <div class="amenity-icon-wrapper">
+              <span class="amenity-icon">🏛️</span>
+            </div>
+            <div class="amenity-details">
+              <span class="amenity-name">Club House</span>
+              <span class="amenity-desc">Community hall & indoor games</span>
+            </div>
+            <div class="amenity-check-indicator">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                <path fill-rule="evenodd" d="M19.916 4.626a.75.75 0 01.208 1.04l-9 13.5a.75.75 0 01-1.154.114l-6-6a.75.75 0 011.06-1.06l5.353 5.353 8.493-12.739a.75.75 0 011.04-.208z" clip-rule="evenodd" />
+              </svg>
+            </div>
+          </div>
+        </label>
       </div>
     </div>
-    <div style="display:flex;gap:12px;">
+
+    <div class="form-actions" style="display:flex;gap:16px;margin-top:32px;">
       <a href="{{ url_for('choose_option') }}" class="btn btn-secondary" style="flex:1;text-align:center;">← Back</a>
-      <button type="submit" class="btn" style="flex:2;">Get price estimate →</button>
+      <button type="submit" class="btn btn-primary" style="flex:2;">Get price estimate →</button>
     </div>
   </form>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function updateAmenitiesState(input) {
+  const cardContent = input.nextElementSibling;
+  if (!cardContent) return;
+  
+  if (input.checked) {
+    cardContent.classList.add('selected');
+    cardContent.setAttribute('aria-checked', 'true');
+  } else {
+    cardContent.classList.remove('selected');
+    cardContent.setAttribute('aria-checked', 'false');
+  }
+
+  // Update selected count badge
+  const checkedCount = document.querySelectorAll('.amenity-checkbox:checked').length;
+  const badge = document.getElementById('selectedCountBadge');
+  if (badge) {
+    badge.textContent = checkedCount === 1 ? '1 Selected' : `${checkedCount} Selected`;
+    if (checkedCount > 0) {
+      badge.classList.add('active');
+    } else {
+      badge.classList.remove('active');
+    }
+  }
+}
+
+function handleAmenityKeydown(event, el) {
+  if (event.key === ' ' || event.key === 'Enter') {
+    event.preventDefault();
+    const checkbox = el.previousElementSibling;
+    if (checkbox) {
+      checkbox.checked = !checkbox.checked;
+      updateAmenitiesState(checkbox);
+    }
+  }
+}
+
+// Ensure initial state synchronization on page load
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.amenity-checkbox').forEach(input => {
+    updateAmenitiesState(input);
+  });
+});
+</script>
 {% endblock %}
