@@ -1,54 +1,114 @@
 {% extends "base.html" %}
-{% block title %}Login{% endblock %}
+{% block title %}Sign In — HomeFinder{% endblock %}
+
 {% block content %}
-<div class="container narrow" style="margin-top:60px;">
-  <div style="text-align:center;margin-bottom:24px;">
-    <div style="font-size:40px;margin-bottom:8px;">🏠</div>
-    <h1>Welcome back</h1>
-    <p class="subtitle">Sign in to your account</p>
-  </div>
-  <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px;">
-    {% if firebase_enabled %}
-    <button type="button" class="btn btn-full" style="background:#fff;color:#1b5e20;border:2px solid #c8e6c9;"
-            onclick="signInWithGoogle('user')">Continue with Google</button>
-    {% elif oauth_enabled %}
-    <a href="{{ url_for('google_auth_start') }}" class="btn btn-full" style="background:#fff;color:#1b5e20;border:2px solid #c8e6c9;">Continue with Google</a>
-    {% else %}
-    <div class="bank-hint">Firebase Google sign-in is not configured yet. Manual login is available for local testing.</div>
-    {% endif %}
-  </div>
-  <form method="post">
-    <div class="form-group">
-      <label>Email address</label>
-      <input type="email" name="email" placeholder="you@email.com" required>
-    </div>
-    <div class="form-group">
-      <label>Password</label>
-      <div style="position:relative;">
-        <input type="password" name="password" id="loginPwd" placeholder="Your password" required style="padding-right:50px;">
-        <span onclick="togglePwd('loginPwd','eyeLogin')"
-          style="position:absolute;right:14px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:18px;user-select:none;"
-          id="eyeLogin">👁</span>
+<div class="auth-wrapper">
+  <div class="auth-card">
+    <div class="auth-header">
+      <div class="auth-brand-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M11.47 3.84a.75.75 0 011.06 0l8.69 8.69a.75.75 0 11-1.06 1.06l-.96-.96v6.87A2.25 2.25 0 0116.95 21.75H7.05a2.25 2.25 0 01-2.25-2.25V12.63l-.96.96a.75.75 0 01-1.06-1.06l8.69-8.69z" />
+        </svg>
       </div>
+      <h1 class="auth-title">Welcome back</h1>
+      <p class="auth-subtitle">Sign in to your HomeFinder account</p>
     </div>
-    <button type="submit" class="btn btn-full" style="margin-top:8px;">Sign in →</button>
-  </form>
-  <div class="auth-footer">
-    Don't have an account? <a href="{{ url_for('register') }}" class="link">Register here</a>
+
+    {% if firebase_enabled %}
+    <div class="oauth-section">
+      <button type="button" class="btn btn-oauth" onclick="signInWithGoogle('user')">
+        <svg class="google-svg" viewBox="0 0 24 24">
+          <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/>
+          <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.24 21.3 7.31 24 12 24z"/>
+          <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.17 0 9.99 0 12s.46 3.83 1.26 5.42l4.02-3.15z"/>
+          <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.24 2.7 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+        </svg>
+        <span>Continue with Google</span>
+      </button>
+    </div>
+    <div class="auth-divider">
+      <span>or continue with email</span>
+    </div>
+    {% elif oauth_enabled %}
+    <div class="oauth-section">
+      <a href="{{ url_for('google_auth_start') }}" class="btn btn-oauth">
+        <svg class="google-svg" viewBox="0 0 24 24">
+          <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/>
+          <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.24 21.3 7.31 24 12 24z"/>
+          <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.17 0 9.99 0 12s.46 3.83 1.26 5.42l4.02-3.15z"/>
+          <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.24 2.7 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+        </svg>
+        <span>Continue with Google</span>
+      </a>
+    </div>
+    <div class="auth-divider">
+      <span>or continue with email</span>
+    </div>
+    {% endif %}
+
+    <form method="post" class="auth-form" onsubmit="handleFormSubmit(this)">
+      <div class="form-group">
+        <label for="loginEmail" class="form-label">Email address</label>
+        <div class="input-wrapper">
+          <input type="email" id="loginEmail" name="email" class="form-input" placeholder="name@example.com" autocomplete="email" required>
+          <span class="input-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+            </svg>
+          </span>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <div class="label-row">
+          <label for="loginPwd" class="form-label">Password</label>
+          <a href="{{ url_for('forgot_password') }}" class="forgot-link">Forgot password?</a>
+        </div>
+        <div class="input-wrapper">
+          <input type="password" name="password" id="loginPwd" class="form-input password-input" placeholder="Enter your password" autocomplete="current-password" required>
+          <button type="button" class="pwd-toggle-btn" onclick="togglePwd('loginPwd','eyeLogin')" aria-label="Toggle password visibility">
+            <svg id="eyeLogin" class="pwd-eye-svg" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-full submit-btn">
+        <span class="btn-text">Sign in</span>
+        <span class="btn-spinner"></span>
+        <svg class="btn-arrow" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+        </svg>
+      </button>
+    </form>
+
+    <div class="auth-footer">
+      Don't have an account? <a href="{{ url_for('register') }}" class="auth-link">Create account</a>
+    </div>
   </div>
 </div>
 {% endblock %}
+
 {% block scripts %}
 <script>
 function togglePwd(id, eyeId) {
   const input = document.getElementById(id);
-  const eye   = document.getElementById(eyeId);
+  const eyeSvg = document.getElementById(eyeId);
   if (input.type === 'password') {
     input.type = 'text';
-    eye.textContent = '🙈';
+    eyeSvg.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />';
   } else {
     input.type = 'password';
-    eye.textContent = '👁';
+    eyeSvg.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />';
+  }
+}
+
+function handleFormSubmit(form) {
+  const submitBtn = form.querySelector('.submit-btn');
+  if (submitBtn) {
+    submitBtn.classList.add('loading');
   }
 }
 </script>

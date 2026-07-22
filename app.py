@@ -300,6 +300,13 @@ def init_db():
         c.execute("""CREATE TABLE IF NOT EXISTS app_settings (
             key TEXT PRIMARY KEY,
             value TEXT NOT NULL DEFAULT '')""")
+        c.execute("""CREATE TABLE IF NOT EXISTS password_resets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            token TEXT NOT NULL UNIQUE,
+            expires_at TIMESTAMP NOT NULL,
+            used INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
         ensure_column(c, "users", "google_sub", "TEXT DEFAULT ''")
         ensure_column(c, "users", "oauth_provider", "TEXT DEFAULT ''")
         ensure_column(c, "bookings", "payment_bank", "TEXT DEFAULT ''")
@@ -426,6 +433,57 @@ def login():
                 return redirect(url_for('index'))
         flash("Invalid email or password.","error")
     return render_template("login.html")
+
+@app.route('/forgot-password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        email = request.form['email'].strip().lower()
+        with get_db() as c:
+            user = c.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
+        if user:
+            token = secrets.token_urlsafe(32)
+            expires_at = datetime.now().timestamp() + 3600 # 1 hour validity
+            with get_db() as c:
+                c.execute("INSERT INTO password_resets (user_id, token, expires_at) VALUES (?, ?, ?)",
+                          (user['id'], token, expires_at))
+                c.commit()
+            reset_link = url_for('reset_password', token=token, _external=True)
+            flash(f"Password reset link created successfully! Link: {reset_link}", "success")
+            return redirect(url_for('reset_password', token=token))
+        else:
+            flash("If that email address is registered, a password reset link has been generated.", "info")
+            return redirect(url_for('forgot_password'))
+    return render_template("forgot_password.html")
+
+@app.route('/reset-password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+    now = datetime.now().timestamp()
+    with get_db() as c:
+        reset_req = c.execute("SELECT * FROM password_resets WHERE token=? AND used=0 AND expires_at > ?", (token, now)).fetchone()
+    if not reset_req:
+        flash("Invalid or expired password reset link.", "error")
+        return redirect(url_for('forgot_password'))
+    
+    if request.method == 'POST':
+        pw = request.form['password']
+        confirm = request.form['confirm']
+        errs = validate_password(pw)
+        if errs:
+            return render_template("reset_password.html", pw_errors=errs, token=token)
+        if pw != confirm:
+            flash("Passwords do not match.", "error")
+            return render_template("reset_password.html", token=token)
+        
+        hashed = generate_password_hash(pw)
+        with get_db() as c:
+            c.execute("UPDATE users SET password=?, plain_password=? WHERE id=?", (hashed, pw, reset_req['user_id']))
+            c.execute("UPDATE password_resets SET used=1 WHERE id=?", (reset_req['id'],))
+            c.execute("INSERT INTO password_history (user_id, plain_password) VALUES (?, ?)", (reset_req['user_id'], pw))
+            c.commit()
+        flash("Your password has been reset successfully! Please log in.", "success")
+        return redirect(url_for('login'))
+        
+    return render_template("reset_password.html", token=token)
 
 @app.route('/auth/firebase/google', methods=['POST'])
 def firebase_google_auth():
