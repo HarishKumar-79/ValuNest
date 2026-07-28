@@ -1,4 +1,4 @@
-import os, sqlite3, pickle, re, json, secrets, base64, urllib.parse, urllib.request, urllib.error, hashlib
+import os, pickle, re, json, secrets, base64, urllib.parse, urllib.request, urllib.error, hashlib
 from urllib.parse import quote_plus
 import numpy as np
 import pandas as pd
@@ -8,13 +8,21 @@ from werkzeug.utils import secure_filename
 from functools import wraps
 from datetime import datetime
 from calendar import monthrange
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Database package
+from db import crud as db
+from db.crud import init_db
+from db.supabase_client import is_supabase_configured, check_connection
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
-app.secret_key = "houseprice_secret_2025"
+app.secret_key = os.environ.get("SECRET_KEY", "houseprice_secret_2025")
 app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024
 
 BASE          = os.path.dirname(os.path.abspath(__file__))
-DB            = os.path.join(BASE, "users.db")
 CSV           = os.path.join(BASE, "merged_files.csv")
 UPLOAD_FOLDER = os.path.join(BASE, "static", "uploads")
 ALLOWED_EXT   = {'png','jpg','jpeg','gif'}
@@ -46,107 +54,6 @@ CITY_COORDS = {
 }
 
 def allowed_file(f): return '.' in f and f.rsplit('.',1)[1].lower() in ALLOWED_EXT
-
-DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
-if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
-    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-
-def get_db():
-    if DATABASE_URL:
-        import psycopg2
-        import psycopg2.extras
-        conn = psycopg2.connect(DATABASE_URL)
-        conn.autocommit = False
-        return DatabaseConnectionWrapper(conn, is_postgres=True)
-    else:
-        conn = sqlite3.connect(DB)
-        conn.row_factory = sqlite3.Row
-        return DatabaseConnectionWrapper(conn, is_postgres=False)
-
-class DatabaseConnectionWrapper:
-    def __init__(self, conn, is_postgres=False):
-        self.conn = conn
-        self.is_postgres = is_postgres
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if exc_type is not None:
-            self.conn.rollback()
-        self.conn.close()
-
-    def execute(self, query, params=()):
-        formatted_query = query
-        if self.is_postgres:
-            # Convert SQLite AUTOINCREMENT and placeholder syntax to PostgreSQL
-            formatted_query = formatted_query.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY")
-            formatted_query = formatted_query.replace("INSERT OR IGNORE INTO", "INSERT INTO")
-            formatted_query = formatted_query.replace("?", "%s")
-            
-            cursor = self.conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-            cursor.execute(formatted_query, params)
-            return PostgresCursorWrapper(cursor)
-        else:
-            return self.conn.execute(formatted_query, params)
-
-    def commit(self):
-        self.conn.commit()
-
-    def rollback(self):
-        self.conn.rollback()
-
-class PostgresCursorWrapper:
-    def __init__(self, cursor):
-        self.cursor = cursor
-
-    def fetchone(self):
-        row = self.cursor.fetchone()
-        return PostgresRowWrapper(row) if row is not None else None
-
-    def fetchall(self):
-        rows = self.cursor.fetchall()
-        return [PostgresRowWrapper(r) for r in rows]
-
-    @property
-    def lastrowid(self):
-        return getattr(self.cursor, 'lastrowid', None)
-
-class PostgresRowWrapper:
-    def __init__(self, row):
-        self._row = row
-
-    def __getitem__(self, item):
-        return self._row[item]
-
-    def keys(self):
-        return self._row.keys()
-
-def ensure_column(c, table, column, definition):
-    if c.is_postgres:
-        res = c.execute("SELECT column_name FROM information_schema.columns WHERE table_name=%s AND column_name=%s", (table, column)).fetchone()
-        if not res:
-            pg_def = definition.replace("TEXT DEFAULT ''", "VARCHAR DEFAULT ''").replace("REAL DEFAULT 0", "DOUBLE PRECISION DEFAULT 0").replace("INTEGER DEFAULT 0", "INT DEFAULT 0")
-            c.execute(f"ALTER TABLE {table} ADD COLUMN {column} {pg_def}")
-    else:
-        existing = [row[1] for row in c.execute(f"PRAGMA table_info({table})").fetchall()]
-        if column not in existing:
-            c.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
-
-def get_setting(key, default_value=''):
-    with get_db() as c:
-        row = c.execute("SELECT value FROM app_settings WHERE key=?", (key,)).fetchone()
-        return row['value'] if row else default_value
-
-def set_setting(key, value):
-    with get_db() as c:
-        if c.is_postgres:
-            c.execute("""INSERT INTO app_settings (key, value) VALUES (%s, %s)
-                         ON CONFLICT(key) DO UPDATE SET value=EXCLUDED.value""", (key, str(value)))
-        else:
-            c.execute("""INSERT INTO app_settings (key, value) VALUES (?, ?)
-                         ON CONFLICT(key) DO UPDATE SET value=excluded.value""", (key, str(value)))
-        c.commit()
 
 def is_google_email(email):
     return bool(re.search(r'@(gmail\.com|googlemail\.com)$', email or '', re.I))
@@ -266,22 +173,19 @@ def google_signup_or_login(google_profile):
     name = (google_profile.get("name") or google_profile.get("given_name") or "Google User").strip()
     photo = google_profile.get("picture") or ""
     google_sub = google_profile.get("sub") or ""
-    with get_db() as c:
-        user = c.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
-        if user:
-            c.execute("UPDATE users SET name=?, photo=?, google_sub=?, oauth_provider='google' WHERE id=?",
-                      (name, photo, google_sub, user["id"]))
-            c.commit()
-            user = c.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
-        else:
-            placeholder_password = secrets.token_urlsafe(24)
-            hashed = generate_password_hash(placeholder_password)
-            c.execute(
-                "INSERT INTO users (name,email,password,plain_password,photo,status,google_sub,oauth_provider) VALUES (?,?,?,?,?,?,?,?)",
-                (name, email, hashed, "", photo, "active", google_sub, "google"),
-            )
-            c.commit()
-            user = c.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
+    user = db.get_user_by_email(email)
+    if user:
+        db.update_user(user["id"], name=name, photo=photo, google_sub=google_sub, oauth_provider="google")
+        user = db.get_user_by_email(email)
+    else:
+        placeholder_password = secrets.token_urlsafe(24)
+        hashed = generate_password_hash(placeholder_password)
+        user, error = db.create_user(
+            name=name, email=email, hashed_password=hashed, plain_password="",
+            photo=photo, status="active", google_sub=google_sub, oauth_provider="google",
+        )
+        if error:
+            return None, error
     return user, None
 
 def make_otp():
@@ -339,71 +243,12 @@ def add_months(source_date, months):
     day = min(source_date.day, monthrange(year, month)[1])
     return source_date.replace(year=year, month=month, day=day)
 
-def init_db():
-    with get_db() as c:
-        c.execute("""CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL, email TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL, plain_password TEXT NOT NULL,
-            phone TEXT DEFAULT '', address TEXT DEFAULT '',
-            photo TEXT DEFAULT '', status TEXT DEFAULT 'active',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
-        c.execute("""CREATE TABLE IF NOT EXISTS password_history (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL, plain_password TEXT NOT NULL,
-            changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
-        c.execute("""CREATE TABLE IF NOT EXISTS login_logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL, user_name TEXT NOT NULL,
-            action TEXT NOT NULL,
-            logged_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
-        c.execute("""CREATE TABLE IF NOT EXISTS bookings (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL, user_name TEXT NOT NULL,
-            city TEXT NOT NULL, location TEXT NOT NULL,
-            price REAL NOT NULL, payment_method TEXT,
-            txn_id TEXT DEFAULT '', booking_type TEXT DEFAULT 'predicted',
-            status TEXT DEFAULT 'cart', paid_at TIMESTAMP,
-            booked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
-        c.execute("""CREATE TABLE IF NOT EXISTS messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            sender_id INTEGER NOT NULL,
-            sender_name TEXT NOT NULL,
-            sender_role TEXT NOT NULL,
-            receiver_id INTEGER,
-            receiver_name TEXT DEFAULT '',
-            receiver_role TEXT NOT NULL,
-            subject TEXT NOT NULL,
-            body TEXT NOT NULL,
-            is_read INTEGER DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
-        c.execute("""CREATE TABLE IF NOT EXISTS app_settings (
-            key TEXT PRIMARY KEY,
-            value TEXT NOT NULL DEFAULT '')""")
-        c.execute("""CREATE TABLE IF NOT EXISTS password_resets (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            token TEXT NOT NULL UNIQUE,
-            expires_at TIMESTAMP NOT NULL,
-            used INTEGER DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
-        ensure_column(c, "users", "google_sub", "TEXT DEFAULT ''")
-        ensure_column(c, "users", "oauth_provider", "TEXT DEFAULT ''")
-        ensure_column(c, "bookings", "payment_bank", "TEXT DEFAULT ''")
-        ensure_column(c, "bookings", "emi_tenure", "INTEGER DEFAULT 0")
-        ensure_column(c, "bookings", "emi_rate", "REAL DEFAULT 0")
-        ensure_column(c, "bookings", "emi_monthly", "REAL DEFAULT 0")
-        ensure_column(c, "bookings", "emi_total_payable", "REAL DEFAULT 0")
-        ensure_column(c, "bookings", "emi_next_date", "TEXT DEFAULT ''")
-        ensure_column(c, "messages", "sender_email", "TEXT DEFAULT ''")
-        ensure_column(c, "messages", "receiver_email", "TEXT DEFAULT ''")
-        if c.is_postgres:
-            c.execute("INSERT INTO app_settings (key, value) VALUES (%s, %s) ON CONFLICT(key) DO NOTHING", ("emi_rate", "12"))
-        else:
-            c.execute("INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)", ("emi_rate", "12"))
-        c.commit()
-
+# ── Initialize database ────────────────────────────────────────
 init_db()
+
+# ── Log database backend ───────────────────────────────────────
+ok, msg = check_connection()
+print(f"Database: {msg}")
 
 @app.context_processor
 def inject_helpers():
@@ -475,17 +320,13 @@ def register():
             flash("Passwords do not match.","error")
             return render_template("register.html",name=name,email=email)
         hashed=generate_password_hash(pw)
-        try:
-            with get_db() as c:
-                c.execute("INSERT INTO users (name,email,password,plain_password) VALUES (?,?,?,?)",(name,email,hashed,pw))
-                c.commit()
-                uid=c.execute("SELECT id FROM users WHERE email=?",(email,)).fetchone()['id']
-                c.execute("INSERT INTO password_history (user_id,plain_password) VALUES (?,?)",(uid,pw))
-                c.commit()
-            flash("Account created! Please log in.","success")
-            return redirect(url_for('login'))
-        except sqlite3.IntegrityError:
-            flash("Email already registered.","error")
+        user, error = db.create_user(name=name, email=email, hashed_password=hashed, plain_password=pw)
+        if error:
+            flash(error, "error")
+            return render_template("register.html", name=name, email=email)
+        db.add_password_history(user['id'], pw)
+        flash("Account created! Please log in.","success")
+        return redirect(url_for('login'))
     return render_template("register.html")
 
 @app.route('/login', methods=['GET','POST'])
@@ -498,8 +339,7 @@ def login():
             return render_template("login.html")
         email=request.form['email'].strip().lower()
         pw=request.form['password']
-        with get_db() as c:
-            user=c.execute("SELECT * FROM users WHERE email=?",(email,)).fetchone()
+        user = db.get_user_by_email(email)
         if user:
             if user['status']=='blocked':
                 flash("Your account has been blocked. Contact admin.","error")
@@ -508,11 +348,7 @@ def login():
                 session['user_id']=user['id']
                 session['user_name']=user['name']
                 session['user_photo']=user['photo'] or ''
-                # Log login
-                with get_db() as c:
-                    c.execute("INSERT INTO login_logs (user_id,user_name,action) VALUES (?,?,?)",
-                              (user['id'],user['name'],'login'))
-                    c.commit()
+                db.create_login_log(user['id'], user['name'], 'login')
                 return redirect(url_for('index'))
         flash("Invalid email or password.","error")
     return render_template("login.html")
@@ -521,15 +357,11 @@ def login():
 def forgot_password():
     if request.method == 'POST':
         email = request.form['email'].strip().lower()
-        with get_db() as c:
-            user = c.execute("SELECT * FROM users WHERE email=?", (email,)).fetchone()
+        user = db.get_user_by_email(email)
         if user:
             token = secrets.token_urlsafe(32)
-            expires_at = datetime.now().timestamp() + 3600 # 1 hour validity
-            with get_db() as c:
-                c.execute("INSERT INTO password_resets (user_id, token, expires_at) VALUES (?, ?, ?)",
-                          (user['id'], token, expires_at))
-                c.commit()
+            expires_at = datetime.now().timestamp() + 3600  # 1 hour validity
+            db.create_reset_token(user['id'], token, expires_at)
             reset_link = url_for('reset_password', token=token, _external=True)
             flash(f"Password reset link created successfully! Link: {reset_link}", "success")
             return redirect(url_for('reset_password', token=token))
@@ -541,12 +373,11 @@ def forgot_password():
 @app.route('/reset-password/<token>', methods=['GET', 'POST'])
 def reset_password(token):
     now = datetime.now().timestamp()
-    with get_db() as c:
-        reset_req = c.execute("SELECT * FROM password_resets WHERE token=? AND used=0 AND expires_at > ?", (token, now)).fetchone()
+    reset_req = db.get_valid_reset(token, now)
     if not reset_req:
         flash("Invalid or expired password reset link.", "error")
         return redirect(url_for('forgot_password'))
-    
+
     if request.method == 'POST':
         pw = request.form['password']
         confirm = request.form['confirm']
@@ -556,16 +387,14 @@ def reset_password(token):
         if pw != confirm:
             flash("Passwords do not match.", "error")
             return render_template("reset_password.html", token=token)
-        
+
         hashed = generate_password_hash(pw)
-        with get_db() as c:
-            c.execute("UPDATE users SET password=?, plain_password=? WHERE id=?", (hashed, pw, reset_req['user_id']))
-            c.execute("UPDATE password_resets SET used=1 WHERE id=?", (reset_req['id'],))
-            c.execute("INSERT INTO password_history (user_id, plain_password) VALUES (?, ?)", (reset_req['user_id'], pw))
-            c.commit()
+        db.update_user(reset_req['user_id'], password=hashed, plain_password=pw)
+        db.mark_reset_used(reset_req['id'])
+        db.add_password_history(reset_req['user_id'], pw)
         flash("Your password has been reset successfully! Please log in.", "success")
         return redirect(url_for('login'))
-        
+
     return render_template("reset_password.html", token=token)
 
 @app.route('/auth/firebase/google', methods=['POST'])
@@ -595,10 +424,7 @@ def firebase_google_auth():
     session["user_name"] = user["name"]
     session["user_photo"] = user["photo"] or ""
     session["user_email"] = user["email"]
-    with get_db() as c:
-        c.execute("INSERT INTO login_logs (user_id,user_name,action) VALUES (?,?,?)",
-                  (user["id"], user["name"], "login"))
-        c.commit()
+    db.create_login_log(user["id"], user["name"], "login")
     return {"ok": True, "redirect": url_for("index")}
 
 @app.route('/auth/google/start')
@@ -632,10 +458,7 @@ def google_auth_callback():
         session['user_name'] = user['name']
         session['user_photo'] = user['photo'] or ''
         session['user_email'] = user['email']
-        with get_db() as c:
-            c.execute("INSERT INTO login_logs (user_id,user_name,action) VALUES (?,?,?)",
-                      (user['id'], user['name'], 'login'))
-            c.commit()
+        db.create_login_log(user['id'], user['name'], 'login')
         flash("Signed in with Google successfully.","success")
         return redirect(url_for('index'))
     except Exception as exc:
@@ -650,10 +473,7 @@ def logout():
         uid=session['user_id']
         uname=session.get('user_name','')
         try:
-            with get_db() as c:
-                c.execute("INSERT INTO login_logs (user_id,user_name,action) VALUES (?,?,?)",
-                          (uid,uname,'logout'))
-                c.commit()
+            db.create_login_log(uid, uname, 'logout')
         except Exception as e:
             print("Logout log error:",e)
     session.clear()
@@ -663,8 +483,7 @@ def logout():
 @app.route('/profile', methods=['GET','POST'])
 @login_required
 def profile():
-    with get_db() as c:
-        user=c.execute("SELECT * FROM users WHERE id=?",(session['user_id'],)).fetchone()
+    user = db.get_user_by_id(session['user_id'])
     if request.method=='POST':
         name=request.form['name'].strip()
         phone=request.form.get('phone','').strip()
@@ -695,17 +514,13 @@ def profile():
                 flash("Current password is incorrect.","error")
                 return render_template("profile.html",user=user)
             hashed=generate_password_hash(new_pw)
-            with get_db() as c:
-                c.execute("UPDATE users SET name=?,email=?,phone=?,address=?,photo=?,password=?,plain_password=? WHERE id=?",
-                          (name,email,phone,address,photo,hashed,new_pw,session['user_id']))
-                c.execute("INSERT INTO password_history (user_id,plain_password) VALUES (?,?)",
-                          (session['user_id'],new_pw))
-                c.commit()
+            db.update_user(session['user_id'],
+                           name=name, email=email, phone=phone, address=address,
+                           photo=photo, password=hashed, plain_password=new_pw)
+            db.add_password_history(session['user_id'], new_pw)
         else:
-            with get_db() as c:
-                c.execute("UPDATE users SET name=?,email=?,phone=?,address=?,photo=? WHERE id=?",
-                          (name,email,phone,address,photo,session['user_id']))
-                c.commit()
+            db.update_user(session['user_id'],
+                           name=name, email=email, phone=phone, address=address, photo=photo)
         session['user_name']=name
         session['user_photo']=photo
         flash("Profile updated successfully!","success")
@@ -722,25 +537,23 @@ def settings():
             "role": "admin",
         }
     else:
-        with get_db() as c:
-            user = c.execute("SELECT * FROM users WHERE id=?", (session['user_id'],)).fetchone()
+        user = db.get_user_by_id(session['user_id'])
         settings_owner = dict(user)
         settings_owner["role"] = "user"
     if request.method == 'POST':
         if session.get('admin'):
-            set_setting("emi_rate", request.form.get("emi_rate", "12"))
+            db.set_setting("emi_rate", request.form.get("emi_rate", "12"))
             flash("Admin settings saved.","success")
         else:
             flash("Settings saved locally for this session.","success")
         return redirect(url_for('settings'))
-    return render_template("settings.html", owner=settings_owner, emi_rate=float(get_setting("emi_rate", "12")))
+    return render_template("settings.html", owner=settings_owner, emi_rate=float(db.get_setting("emi_rate", "12")))
 
 @app.route('/admin/profile')
 @admin_required
 def admin_profile():
-    with get_db() as c:
-        total_users = c.execute("SELECT COUNT(*) FROM users").fetchone()[0]
-        recent_logs = c.execute("SELECT * FROM login_logs ORDER BY logged_at DESC LIMIT 20").fetchall()
+    total_users = db.count_users()
+    recent_logs = db.get_recent_login_logs(20)
     return render_template("admin_profile.html",
         name="Admin",
         email=ADMIN_EMAIL,
@@ -751,15 +564,10 @@ def admin_profile():
 @any_auth_required
 def messages():
     if session.get('admin'):
-        with get_db() as c:
-            inbox = c.execute("SELECT * FROM messages ORDER BY created_at DESC").fetchall()
-            users = c.execute("SELECT id, name, email FROM users ORDER BY name ASC").fetchall()
+        inbox = db.get_all_messages()
+        users = db.get_users_for_messaging()
         return render_template("messages.html", inbox=inbox, users=users, role="admin")
-    with get_db() as c:
-        inbox = c.execute(
-            "SELECT * FROM messages WHERE sender_id=? OR receiver_id=? OR receiver_role='admin' ORDER BY created_at DESC",
-            (session['user_id'], session['user_id']),
-        ).fetchall()
+    inbox = db.get_user_messages(session['user_id'])
     return render_template("messages.html", inbox=inbox, role="user")
 
 @app.route('/messages/send', methods=['POST'])
@@ -776,22 +584,24 @@ def send_message():
         if not receiver_id:
             flash("Choose a user to send the message.","error")
             return redirect(url_for('messages'))
-        with get_db() as c:
-            user = c.execute("SELECT * FROM users WHERE id=?", (int(receiver_id),)).fetchone()
-            c.execute("""INSERT INTO messages
-                (sender_id,sender_name,sender_email,sender_role,receiver_id,receiver_name,receiver_email,receiver_role,subject,body)
-                VALUES (?,?,?,?,?,?,?,?,?,?)""",
-                (0, 'Admin', ADMIN_EMAIL, 'admin', int(receiver_id), user['name'] if user else receiver_name, user['email'] if user else '', 'user', subject, body))
-            c.commit()
+        user = db.get_user_by_id(int(receiver_id))
+        db.send_message(
+            sender_id=0, sender_name='Admin', sender_email=ADMIN_EMAIL, sender_role='admin',
+            receiver_id=int(receiver_id),
+            receiver_name=user['name'] if user else receiver_name,
+            receiver_email=user['email'] if user else '',
+            receiver_role='user', subject=subject, body=body,
+        )
         flash("Message sent to user.","success")
         return redirect(url_for('messages'))
-    with get_db() as c:
-        user = c.execute("SELECT * FROM users WHERE id=?", (session['user_id'],)).fetchone()
-        c.execute("""INSERT INTO messages
-            (sender_id,sender_name,sender_email,sender_role,receiver_id,receiver_name,receiver_email,receiver_role,subject,body)
-            VALUES (?,?,?,?,?,?,?,?,?,?)""",
-            (session['user_id'], session['user_name'], user['email'] if user else '', 'user', None, 'Admin', ADMIN_EMAIL, 'admin', subject, body))
-        c.commit()
+    user = db.get_user_by_id(session['user_id'])
+    db.send_message(
+        sender_id=session['user_id'], sender_name=session['user_name'],
+        sender_email=user['email'] if user else '',
+        sender_role='user', receiver_id=None, receiver_name='Admin',
+        receiver_email=ADMIN_EMAIL, receiver_role='admin',
+        subject=subject, body=body,
+    )
     flash("Message sent to admin.","success")
     return redirect(url_for('messages'))
 
@@ -799,9 +609,7 @@ def send_message():
 @app.route('/map')
 @login_required
 def property_map():
-    with get_db() as c:
-        bookings=c.execute("SELECT * FROM bookings WHERE user_id=? AND status='confirmed' ORDER BY paid_at DESC",
-                           (session['user_id'],)).fetchall()
+    bookings = db.get_user_confirmed_bookings(session['user_id'])
     import random
     properties=[]
     for b in bookings:
@@ -900,9 +708,7 @@ def filter_listings():
             flash("Please enter a valid budget.","error")
             return render_template("filter.html",city=city,location=location,listings=[],no_results=False)
         low=budget*(1-margin/100); high=budget*(1+margin/100)
-        with get_db() as c:
-            taken=c.execute("SELECT location FROM bookings WHERE city=? AND status IN ('cart','confirmed')",(city,)).fetchall()
-        taken_locs=[t['location'] for t in taken]
+        taken_locs = db.get_taken_locations(city)
         filtered=df[(df['City']==city)&(df['Location']==location)&(df['Price']>=low)&(df['Price']<=high)].copy()
         if len(filtered)==0:
             filtered=df[(df['City']==city)&(df['Price']>=low)&(df['Price']<=high)].copy()
@@ -928,16 +734,16 @@ def add_to_cart_filter():
     price=int(float(request.form.get('price',0)))
     location=request.form.get('location',session.get('location',''))
     city=session.get('city','')
-    with get_db() as c:
-        existing=c.execute("SELECT id FROM bookings WHERE user_id=? AND city=? AND location=? AND status='cart'",
-                           (session['user_id'],city,location)).fetchone()
-        if not existing:
-            c.execute("INSERT INTO bookings (user_id,user_name,city,location,price,booking_type,status) VALUES (?,?,?,?,?,'budget_filter','cart')",
-                      (session['user_id'],session['user_name'],city,location,price))
-            c.commit()
-            flash("House added to cart! Pay later from My History.","success")
-        else:
-            flash("Already in your cart.","error")
+    existing = db.get_user_cart_item(session['user_id'], city, location)
+    if not existing:
+        db.create_booking(
+            user_id=session['user_id'], user_name=session['user_name'],
+            city=city, location=location, price=price,
+            booking_type='budget_filter', status='cart',
+        )
+        flash("House added to cart! Pay later from My History.","success")
+    else:
+        flash("Already in your cart.","error")
     return redirect(url_for('filter_listings'))
 
 @app.route('/add_to_cart', methods=['POST'])
@@ -946,16 +752,16 @@ def add_to_cart():
     price=session.get('selected_price',0) if session.get('payment_from')=='filter' else session.get('predicted_price',0)
     city=session.get('city',''); location=session.get('location','')
     booking_type=session.get('booking_type','predicted')
-    with get_db() as c:
-        existing=c.execute("SELECT id FROM bookings WHERE user_id=? AND city=? AND location=? AND status='cart'",
-                           (session['user_id'],city,location)).fetchone()
-        if not existing:
-            c.execute("INSERT INTO bookings (user_id,user_name,city,location,price,booking_type,status) VALUES (?,?,?,?,?,?,'cart')",
-                      (session['user_id'],session['user_name'],city,location,price,booking_type))
-            c.commit()
-            flash("Added to cart! Pay later from My History.","success")
-        else:
-            flash("Already in your cart.","error")
+    existing = db.get_user_cart_item(session['user_id'], city, location)
+    if not existing:
+        db.create_booking(
+            user_id=session['user_id'], user_name=session['user_name'],
+            city=city, location=location, price=price,
+            booking_type=booking_type, status='cart',
+        )
+        flash("Added to cart! Pay later from My History.","success")
+    else:
+        flash("Already in your cart.","error")
     return redirect(url_for('user_history'))
 
 @app.route('/payment', methods=['GET','POST'])
@@ -977,13 +783,13 @@ def payment():
         session['emi_monthly']=None
         session['emi_total_payable']=None
         session['emi_next_date']=None
-        session['emi_rate']=float(get_setting("emi_rate", "12"))
+        session['emi_rate']=float(db.get_setting("emi_rate", "12"))
         city=session.get('city',''); location=session.get('location','')
         booking_type=session.get('booking_type','predicted')
         paid_at=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         if method == 'EMI':
             emi_tenure = int(request.form.get('emi_tenure', 6))
-            emi_rate = float(get_setting("emi_rate", "12"))
+            emi_rate = float(db.get_setting("emi_rate", "12"))
             emi_monthly = round(calculate_emi(price, emi_tenure, emi_rate / 100))
             next_emi_date = add_months(datetime.now(), 1)
             session['emi_tenure'] = emi_tenure
@@ -991,25 +797,29 @@ def payment():
             session['emi_monthly'] = emi_monthly
             session['emi_total_payable'] = round(emi_monthly * emi_tenure)
             session['emi_next_date'] = next_emi_date.strftime("%d %b %Y")
-        with get_db() as c:
-            existing=c.execute("SELECT id FROM bookings WHERE user_id=? AND city=? AND location=? AND status='cart'",
-                               (session['user_id'],city,location)).fetchone()
-            if existing:
-                c.execute("""UPDATE bookings SET payment_method=?,txn_id=?,status='confirmed',paid_at=?,
-                             payment_bank=?,emi_tenure=?,emi_rate=?,emi_monthly=?,emi_total_payable=?,emi_next_date=?
-                             WHERE id=?""",
-                          (method,txn_id,paid_at,session['payment_bank'],session['emi_tenure'],
-                           session['emi_rate'],session['emi_monthly'],session['emi_total_payable'],
-                           session['emi_next_date'],existing['id']))
-            else:
-                c.execute("""INSERT INTO bookings
-                    (user_id,user_name,city,location,price,payment_method,txn_id,booking_type,status,paid_at,
-                     payment_bank,emi_tenure,emi_rate,emi_monthly,emi_total_payable,emi_next_date)
-                    VALUES (?,?,?,?,?,?,?,?,'confirmed',?,?,?,?,?,?,?)""",
-                          (session['user_id'],session['user_name'],city,location,price,method,txn_id,booking_type,paid_at,
-                           session['payment_bank'],session['emi_tenure'],session['emi_rate'],
-                           session['emi_monthly'],session['emi_total_payable'],session['emi_next_date']))
-            c.commit()
+        # Check if there's already a cart item for this
+        existing = db.get_user_cart_item(session['user_id'], city, location)
+        if existing:
+            db.confirm_booking(
+                booking_id=existing['id'], payment_method=method, txn_id=txn_id,
+                paid_at=paid_at, payment_bank=session['payment_bank'],
+                emi_tenure=session['emi_tenure'], emi_rate=session['emi_rate'],
+                emi_monthly=session['emi_monthly'],
+                emi_total_payable=session['emi_total_payable'],
+                emi_next_date=session['emi_next_date'],
+            )
+        else:
+            db.create_booking(
+                user_id=session['user_id'], user_name=session['user_name'],
+                city=city, location=location, price=price,
+                booking_type=booking_type, status='confirmed',
+                payment_method=method, txn_id=txn_id, paid_at=paid_at,
+                payment_bank=session['payment_bank'],
+                emi_tenure=session['emi_tenure'], emi_rate=session['emi_rate'],
+                emi_monthly=session['emi_monthly'],
+                emi_total_payable=session['emi_total_payable'],
+                emi_next_date=session['emi_next_date'],
+            )
         return redirect(url_for('payment_success'))
     back_url=url_for('result',pred=session.get('predicted_price',0),
                      low=round((session.get('predicted_price') or 0)*0.92),
@@ -1017,7 +827,7 @@ def payment():
                     ) if session.get('payment_from')=='predict' else url_for('filter_listings')
     city=session.get('city',''); location=session.get('location','')
     return render_template("payment.html",price=price,city=city,location=location,back_url=back_url,
-                           emi_rate=float(get_setting("emi_rate", "12")),
+                           emi_rate=float(db.get_setting("emi_rate", "12")),
                            netbanking_otp_required=netbanking_otp_required())
 
 @app.route('/payment/send-otp', methods=['POST'])
@@ -1031,8 +841,7 @@ def payment_send_otp():
         session.pop("nb_otp_expires", None)
         session["nb_otp_bank"] = bank
         return {"ok": True, "skip_otp": True, "message": "SMS OTP is not configured. OTP skipped for this demo payment."}
-    with get_db() as c:
-        user = c.execute("SELECT * FROM users WHERE id=?", (session['user_id'],)).fetchone()
+    user = db.get_user_by_id(session['user_id'])
     phone = (user['phone'] or '').strip()
     if not phone:
         return {"ok": False, "error": "Add your mobile number in profile first."}, 400
@@ -1062,21 +871,19 @@ def payment_success():
 @app.route('/receipt/<int:booking_id>')
 @any_auth_required
 def receipt(booking_id):
-    with get_db() as c:
-        booking = c.execute("SELECT * FROM bookings WHERE id=?", (booking_id,)).fetchone()
-        if not booking:
-            flash("Receipt not found.","error")
-            return redirect(url_for('admin_dashboard') if session.get('admin') else url_for('user_history'))
-        if not session.get('admin') and booking['user_id'] != session.get('user_id'):
-            flash("You cannot view this receipt.","error")
-            return redirect(url_for('user_history'))
+    booking = db.get_booking_by_id(booking_id)
+    if not booking:
+        flash("Receipt not found.","error")
+        return redirect(url_for('admin_dashboard') if session.get('admin') else url_for('user_history'))
+    if not session.get('admin') and booking['user_id'] != session.get('user_id'):
+        flash("You cannot view this receipt.","error")
+        return redirect(url_for('user_history'))
     return render_template("receipt.html", booking=booking, is_admin=bool(session.get('admin')))
 
 @app.route('/pay_cart/<int:booking_id>', methods=['GET','POST'])
 @login_required
 def pay_cart(booking_id):
-    with get_db() as c:
-        booking=c.execute("SELECT * FROM bookings WHERE id=? AND user_id=?",(booking_id,session['user_id'])).fetchone()
+    booking = db.get_booking_for_user(booking_id, session['user_id'])
     if not booking:
         flash("Booking not found.","error")
         return redirect(url_for('user_history'))
@@ -1098,10 +905,10 @@ def pay_cart(booking_id):
         session['emi_monthly']=None
         session['emi_total_payable']=None
         session['emi_next_date']=None
-        session['emi_rate']=float(get_setting("emi_rate", "12"))
+        session['emi_rate']=float(db.get_setting("emi_rate", "12"))
         if method == 'EMI':
             emi_tenure = int(request.form.get('emi_tenure', 6))
-            emi_rate = float(get_setting("emi_rate", "12"))
+            emi_rate = float(db.get_setting("emi_rate", "12"))
             emi_monthly = round(calculate_emi(booking['price'], emi_tenure, emi_rate / 100))
             next_emi_date = add_months(datetime.now(), 1)
             session['emi_tenure'] = emi_tenure
@@ -1109,33 +916,30 @@ def pay_cart(booking_id):
             session['emi_monthly'] = emi_monthly
             session['emi_total_payable'] = round(emi_monthly * emi_tenure)
             session['emi_next_date'] = next_emi_date.strftime("%d %b %Y")
-        with get_db() as c:
-            c.execute("""UPDATE bookings SET payment_method=?,txn_id=?,status='confirmed',paid_at=?,
-                         payment_bank=?,emi_tenure=?,emi_rate=?,emi_monthly=?,emi_total_payable=?,emi_next_date=?
-                         WHERE id=?""",
-                      (method,txn_id,paid_at,session['payment_bank'],session['emi_tenure'],
-                       session['emi_rate'],session['emi_monthly'],session['emi_total_payable'],
-                       session['emi_next_date'],booking_id))
-            c.commit()
+        db.confirm_booking(
+            booking_id=booking_id, payment_method=method, txn_id=txn_id,
+            paid_at=paid_at, payment_bank=session['payment_bank'],
+            emi_tenure=session['emi_tenure'], emi_rate=session['emi_rate'],
+            emi_monthly=session['emi_monthly'],
+            emi_total_payable=session['emi_total_payable'],
+            emi_next_date=session['emi_next_date'],
+        )
         return redirect(url_for('payment_success'))
-    return render_template("pay_cart.html",booking=booking,emi_rate=float(get_setting("emi_rate", "12")),
+    return render_template("pay_cart.html",booking=booking,emi_rate=float(db.get_setting("emi_rate", "12")),
                            netbanking_otp_required=netbanking_otp_required())
 
 @app.route('/remove_cart/<int:booking_id>', methods=['POST'])
 @login_required
 def remove_cart(booking_id):
-    with get_db() as c:
-        c.execute("DELETE FROM bookings WHERE id=? AND user_id=? AND status='cart'",(booking_id,session['user_id']))
-        c.commit()
+    db.remove_cart_item(booking_id, session['user_id'])
     flash("Removed from cart.","success")
     return redirect(url_for('user_history'))
 
 @app.route('/history')
 @login_required
 def user_history():
-    with get_db() as c:
-        cart=c.execute("SELECT * FROM bookings WHERE user_id=? AND status='cart' ORDER BY booked_at DESC",(session['user_id'],)).fetchall()
-        purchased=c.execute("SELECT * FROM bookings WHERE user_id=? AND status='confirmed' ORDER BY paid_at DESC",(session['user_id'],)).fetchall()
+    cart = db.get_user_bookings_by_status(session['user_id'], 'cart')
+    purchased = db.get_user_bookings_by_status(session['user_id'], 'confirmed')
     return render_template("user_history.html",cart=cart,purchased=purchased,name=session.get('user_name',''))
 
 # ===== ADMIN =====
@@ -1162,11 +966,10 @@ def admin_logout():
 @app.route('/admin')
 @admin_required
 def admin_dashboard():
-    with get_db() as c:
-        users=c.execute("SELECT * FROM users ORDER BY id DESC").fetchall()
-        bookings=c.execute("SELECT * FROM bookings ORDER BY id DESC").fetchall()
-        recent_logs=c.execute("SELECT * FROM login_logs ORDER BY logged_at DESC LIMIT 10").fetchall()
-        older_logs=c.execute("SELECT * FROM login_logs ORDER BY logged_at DESC LIMIT -1 OFFSET 10").fetchall()
+    users = db.get_all_users()
+    bookings = db.get_all_bookings()
+    recent_logs = db.get_recent_login_logs(10)
+    older_logs = db.get_older_login_logs(10)
     confirmed=[b for b in bookings if b['status']=='confirmed']
     cart_items=[b for b in bookings if b['status']=='cart']
     total_revenue=sum(b['price'] for b in confirmed)
@@ -1182,96 +985,85 @@ def admin_dashboard():
 @app.route('/admin/view_user/<int:user_id>')
 @admin_required
 def view_user(user_id):
-    with get_db() as c:
-        user=c.execute("SELECT * FROM users WHERE id=?",(user_id,)).fetchone()
-        bookings=c.execute("SELECT * FROM bookings WHERE user_id=? ORDER BY id DESC",(user_id,)).fetchall()
-        pw_history=c.execute("SELECT * FROM password_history WHERE user_id=? ORDER BY changed_at DESC",(user_id,)).fetchall()
-        login_logs=c.execute("SELECT * FROM login_logs WHERE user_id=? ORDER BY logged_at DESC",(user_id,)).fetchall()
-        login_count=c.execute("SELECT COUNT(*) FROM login_logs WHERE user_id=? AND action='login'",(user_id,)).fetchone()[0]
-        logout_count=c.execute("SELECT COUNT(*) FROM login_logs WHERE user_id=? AND action='logout'",(user_id,)).fetchone()[0]
-    return render_template("view_user.html",user=user,bookings=bookings,
+    user = db.get_user_by_id(user_id)
+    bookings = db.get_all_bookings()
+    user_bookings = [b for b in bookings if b['user_id'] == user_id]
+    pw_history = db.get_password_history(user_id)
+    login_logs = db.get_user_login_logs(user_id)
+    login_count = db.count_user_actions(user_id, 'login')
+    logout_count = db.count_user_actions(user_id, 'logout')
+    return render_template("view_user.html",user=user,bookings=user_bookings,
                            pw_history=pw_history,login_logs=login_logs,
                            login_count=login_count,logout_count=logout_count)
 
 @app.route('/admin/edit_user/<int:user_id>', methods=['GET','POST'])
 @admin_required
 def edit_user(user_id):
-    with get_db() as c:
-        if request.method=='POST':
-            name=request.form['name'].strip(); email=request.form['email'].strip().lower()
-            status=request.form['status']; new_pw=request.form.get('password','').strip()
-            if not is_google_email(email):
-                user=c.execute("SELECT * FROM users WHERE id=?",(user_id,)).fetchone()
-                flash("Admin can only save Google email addresses.","error")
-                return render_template("edit_user.html",user=user)
-            if new_pw:
-                errs=validate_password(new_pw)
-                if errs:
-                    user=c.execute("SELECT * FROM users WHERE id=?",(user_id,)).fetchone()
-                    flash("Password does not meet requirements.","error")
-                    return render_template("edit_user.html",user=user,pw_errors=errs)
-                hashed=generate_password_hash(new_pw)
-                c.execute("UPDATE users SET name=?,email=?,status=?,password=?,plain_password=? WHERE id=?",(name,email,status,hashed,new_pw,user_id))
-                c.execute("INSERT INTO password_history (user_id,plain_password) VALUES (?,?)",(user_id,new_pw))
-            else:
-                c.execute("UPDATE users SET name=?,email=?,status=? WHERE id=?",(name,email,status,user_id))
-            c.commit()
-            flash("User updated.","success")
-            return redirect(url_for('admin_dashboard'))
-        user=c.execute("SELECT * FROM users WHERE id=?",(user_id,)).fetchone()
+    if request.method=='POST':
+        name=request.form['name'].strip(); email=request.form['email'].strip().lower()
+        status=request.form['status']; new_pw=request.form.get('password','').strip()
+        if not is_google_email(email):
+            user = db.get_user_by_id(user_id)
+            flash("Admin can only save Google email addresses.","error")
+            return render_template("edit_user.html",user=user)
+        if new_pw:
+            errs=validate_password(new_pw)
+            if errs:
+                user = db.get_user_by_id(user_id)
+                flash("Password does not meet requirements.","error")
+                return render_template("edit_user.html",user=user,pw_errors=errs)
+            hashed=generate_password_hash(new_pw)
+            db.update_user(user_id, name=name, email=email, status=status,
+                           password=hashed, plain_password=new_pw)
+            db.add_password_history(user_id, new_pw)
+        else:
+            db.update_user(user_id, name=name, email=email, status=status)
+        flash("User updated.","success")
+        return redirect(url_for('admin_dashboard'))
+    user = db.get_user_by_id(user_id)
     return render_template("edit_user.html",user=user)
 
 @app.route('/admin/remove_booking/<int:booking_id>', methods=['POST'])
 @admin_required
 def remove_booking(booking_id):
-    with get_db() as c:
-        c.execute("DELETE FROM bookings WHERE id=?",(booking_id,))
-        c.commit()
+    db.delete_booking(booking_id)
     flash("Booking removed.","success")
     return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/edit_booking/<int:id>', methods=['GET','POST'])
 @admin_required
 def edit_booking(id):
-    with get_db() as c:
-        if request.method=='POST':
-            c.execute("UPDATE bookings SET price=?,city=?,location=?,payment_method=?,status=? WHERE id=?",
-                      (float(request.form['price']),request.form['city'].strip(),
-                       request.form['location'].strip(),request.form['payment_method'].strip(),
-                       request.form['status'],id))
-            c.commit()
-            flash("Booking updated.","success")
-            return redirect(url_for('admin_dashboard'))
-        booking=c.execute("SELECT * FROM bookings WHERE id=?",(id,)).fetchone()
+    if request.method=='POST':
+        db.update_booking(id,
+            price=float(request.form['price']),
+            city=request.form['city'].strip(),
+            location=request.form['location'].strip(),
+            payment_method=request.form['payment_method'].strip(),
+            status=request.form['status'],
+        )
+        flash("Booking updated.","success")
+        return redirect(url_for('admin_dashboard'))
+    booking = db.get_booking_by_id(id)
     return render_template("edit_booking.html",booking=booking)
 
 @app.route('/admin/remove_user/<int:user_id>', methods=['POST'])
 @admin_required
 def remove_user(user_id):
-    with get_db() as c:
-        c.execute("DELETE FROM bookings WHERE user_id=?",(user_id,))
-        c.execute("DELETE FROM password_history WHERE user_id=?",(user_id,))
-        c.execute("DELETE FROM login_logs WHERE user_id=?",(user_id,))
-        c.execute("DELETE FROM users WHERE id=?",(user_id,))
-        c.commit()
+    db.delete_user(user_id)
     flash("User removed.","success")
     return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/block_user/<int:user_id>', methods=['POST'])
 @admin_required
 def block_user(user_id):
-    with get_db() as c:
-        c.execute("UPDATE users SET status='blocked' WHERE id=?",(user_id,))
-        c.commit()
+    db.block_user(user_id)
     flash("User blocked.","success")
     return redirect(url_for('admin_dashboard'))
 
 @app.route('/admin/unblock_user/<int:user_id>', methods=['POST'])
 @admin_required
 def unblock_user(user_id):
-    with get_db() as c:
-        c.execute("UPDATE users SET status='active' WHERE id=?",(user_id,))
-        c.commit()
+    db.unblock_user(user_id)
     flash("User unblocked.","success")
     return redirect(url_for('admin_dashboard'))
 
