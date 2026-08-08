@@ -67,6 +67,7 @@ def init_db():
             phone TEXT DEFAULT '', address TEXT DEFAULT '',
             photo TEXT DEFAULT '', status TEXT DEFAULT 'active',
             google_sub TEXT DEFAULT '', oauth_provider TEXT DEFAULT '',
+            role TEXT DEFAULT 'user',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
         conn.execute("""CREATE TABLE IF NOT EXISTS password_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -87,7 +88,8 @@ def init_db():
             booked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             payment_bank TEXT DEFAULT '', emi_tenure INTEGER DEFAULT 0,
             emi_rate REAL DEFAULT 0, emi_monthly REAL DEFAULT 0,
-            emi_total_payable REAL DEFAULT 0, emi_next_date TEXT DEFAULT '')""")
+            emi_total_payable REAL DEFAULT 0, emi_next_date TEXT DEFAULT '',
+            latitude REAL DEFAULT NULL, longitude REAL DEFAULT NULL)""")
         conn.execute("""CREATE TABLE IF NOT EXISTS messages (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             sender_id INTEGER NOT NULL, sender_name TEXT NOT NULL,
@@ -112,6 +114,17 @@ def init_db():
             ("emi_rate", "12"),
         )
         conn.commit()
+        # Safe migration: add columns if missing (for existing databases)
+        for col_sql in [
+            "ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'",
+            "ALTER TABLE bookings ADD COLUMN latitude REAL DEFAULT NULL",
+            "ALTER TABLE bookings ADD COLUMN longitude REAL DEFAULT NULL",
+        ]:
+            try:
+                conn.execute(col_sql)
+                conn.commit()
+            except Exception:
+                pass  # Column already exists
         conn.close()
         print("✓ SQLite database initialized.")
 
@@ -845,3 +858,219 @@ def set_setting(key, value):
         )
         conn.commit()
         conn.close()
+
+
+# ════════════════════════════════════════════════════════════════
+# ROLE-BASED ACCESS
+# ════════════════════════════════════════════════════════════════
+
+def get_user_role(user_id):
+    """Get the role of a user. Returns 'user' if not found."""
+    user = get_user_by_id(user_id)
+    if user:
+        return user.get("role", "user") or "user"
+    return "user"
+
+
+def set_user_role(user_id, role):
+    """Set the role of a user (admin/staff/user)."""
+    if role not in ("admin", "staff", "user"):
+        return
+    update_user(user_id, role=role)
+
+
+def get_users_by_role(role):
+    """Get all users with a given role."""
+    if is_supabase_configured():
+        try:
+            result = (_sb().table("users").select("*")
+                      .eq("role", role).order("id", desc=True).execute())
+            return _wrap_list(result.data)
+        except Exception as e:
+            print(f"Error in get_users_by_role: {e}")
+            return []
+    else:
+        conn = _get_sqlite()
+        rows = conn.execute(
+            "SELECT * FROM users WHERE role=? ORDER BY id DESC", (role,)
+        ).fetchall()
+        conn.close()
+        return rows
+
+
+# ════════════════════════════════════════════════════════════════
+# ANALYTICS QUERIES
+# ════════════════════════════════════════════════════════════════
+
+def get_monthly_registrations(limit=12):
+    """Return monthly user registration counts for the last N months.
+    Returns list of dicts: [{"month": "2026-01", "count": 5}, ...]
+    """
+    if is_supabase_configured():
+        try:
+            # Supabase: use RPC or raw query via PostgREST isn't ideal;
+            # fetch all users and aggregate in Python
+            result = _sb().table("users").select("created_at").execute()
+            return _aggregate_monthly(result.data, "created_at", limit)
+        except Exception as e:
+            print(f"Error in get_monthly_registrations: {e}")
+            return []
+    else:
+        conn = _get_sqlite()
+        rows = conn.execute(
+            "SELECT strftime('%Y-%m', created_at) as month, COUNT(*) as count "
+            "FROM users GROUP BY month ORDER BY month DESC LIMIT ?", (limit,)
+        ).fetchall()
+        conn.close()
+        return [{"month": r["month"], "count": r["count"]} for r in rows]
+
+
+def get_monthly_bookings(limit=12):
+    """Return monthly confirmed booking counts."""
+    if is_supabase_configured():
+        try:
+            result = (_sb().table("bookings").select("booked_at")
+                      .eq("status", "confirmed").execute())
+            return _aggregate_monthly(result.data, "booked_at", limit)
+        except Exception as e:
+            print(f"Error in get_monthly_bookings: {e}")
+            return []
+    else:
+        conn = _get_sqlite()
+        rows = conn.execute(
+            "SELECT strftime('%Y-%m', booked_at) as month, COUNT(*) as count "
+            "FROM bookings WHERE status='confirmed' GROUP BY month ORDER BY month DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        conn.close()
+        return [{"month": r["month"], "count": r["count"]} for r in rows]
+
+
+def get_revenue_by_month(limit=12):
+    """Return monthly revenue totals."""
+    if is_supabase_configured():
+        try:
+            result = (_sb().table("bookings").select("booked_at,price")
+                      .eq("status", "confirmed").execute())
+            return _aggregate_monthly_sum(result.data, "booked_at", "price", limit)
+        except Exception as e:
+            print(f"Error in get_revenue_by_month: {e}")
+            return []
+    else:
+        conn = _get_sqlite()
+        rows = conn.execute(
+            "SELECT strftime('%Y-%m', booked_at) as month, SUM(price) as total "
+            "FROM bookings WHERE status='confirmed' GROUP BY month ORDER BY month DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+        conn.close()
+        return [{"month": r["month"], "total": r["total"] or 0} for r in rows]
+
+
+def get_top_cities(limit=10):
+    """Return top cities by confirmed booking count."""
+    if is_supabase_configured():
+        try:
+            result = (_sb().table("bookings").select("city")
+                      .eq("status", "confirmed").execute())
+            from collections import Counter
+            counts = Counter(r["city"] for r in (result.data or []))
+            top = counts.most_common(limit)
+            return [{"city": c, "count": n} for c, n in top]
+        except Exception as e:
+            print(f"Error in get_top_cities: {e}")
+            return []
+    else:
+        conn = _get_sqlite()
+        rows = conn.execute(
+            "SELECT city, COUNT(*) as count FROM bookings WHERE status='confirmed' "
+            "GROUP BY city ORDER BY count DESC LIMIT ?", (limit,)
+        ).fetchall()
+        conn.close()
+        return [{"city": r["city"], "count": r["count"]} for r in rows]
+
+
+def get_booking_status_distribution():
+    """Return booking counts grouped by status."""
+    if is_supabase_configured():
+        try:
+            result = _sb().table("bookings").select("status").execute()
+            from collections import Counter
+            counts = Counter(r["status"] for r in (result.data or []))
+            return [{"status": s, "count": c} for s, c in counts.items()]
+        except Exception as e:
+            print(f"Error in get_booking_status_distribution: {e}")
+            return []
+    else:
+        conn = _get_sqlite()
+        rows = conn.execute(
+            "SELECT status, COUNT(*) as count FROM bookings GROUP BY status"
+        ).fetchall()
+        conn.close()
+        return [{"status": r["status"], "count": r["count"]} for r in rows]
+
+
+def get_todays_bookings_count():
+    """Count bookings made today."""
+    if is_supabase_configured():
+        try:
+            from datetime import date
+            today = date.today().isoformat()
+            result = (_sb().table("bookings").select("id", count="exact")
+                      .gte("booked_at", today).execute())
+            return result.count or 0
+        except Exception as e:
+            print(f"Error in get_todays_bookings_count: {e}")
+            return 0
+    else:
+        conn = _get_sqlite()
+        count = conn.execute(
+            "SELECT COUNT(*) FROM bookings WHERE date(booked_at) = date('now')"
+        ).fetchone()[0]
+        conn.close()
+        return count
+
+
+def count_unread_messages():
+    """Count unread messages (for admin badge)."""
+    if is_supabase_configured():
+        try:
+            result = (_sb().table("messages").select("id", count="exact")
+                      .eq("is_read", 0).eq("receiver_role", "admin").execute())
+            return result.count or 0
+        except Exception as e:
+            print(f"Error in count_unread_messages: {e}")
+            return 0
+    else:
+        conn = _get_sqlite()
+        count = conn.execute(
+            "SELECT COUNT(*) FROM messages WHERE is_read=0 AND receiver_role='admin'"
+        ).fetchone()[0]
+        conn.close()
+        return count
+
+
+# ── Aggregation helpers (for Supabase where we fetch raw rows) ──
+
+def _aggregate_monthly(rows, date_field, limit=12):
+    """Aggregate rows by month from a date field."""
+    from collections import Counter
+    months = Counter()
+    for r in (rows or []):
+        val = r.get(date_field) or ""
+        if len(val) >= 7:
+            months[val[:7]] += 1
+    sorted_months = sorted(months.items(), reverse=True)[:limit]
+    return [{"month": m, "count": c} for m, c in sorted_months]
+
+
+def _aggregate_monthly_sum(rows, date_field, value_field, limit=12):
+    """Aggregate sum of a value field by month."""
+    from collections import defaultdict
+    months = defaultdict(float)
+    for r in (rows or []):
+        val = r.get(date_field) or ""
+        if len(val) >= 7:
+            months[val[:7]] += float(r.get(value_field) or 0)
+    sorted_months = sorted(months.items(), reverse=True)[:limit]
+    return [{"month": m, "total": t} for m, t in sorted_months]

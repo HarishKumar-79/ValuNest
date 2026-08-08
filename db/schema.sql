@@ -18,11 +18,13 @@ CREATE TABLE IF NOT EXISTS users (
     status        VARCHAR DEFAULT 'active',
     google_sub    VARCHAR DEFAULT '',
     oauth_provider VARCHAR DEFAULT '',
+    role          VARCHAR DEFAULT 'user',
     created_at    TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON users (email);
 CREATE INDEX IF NOT EXISTS idx_users_status ON users (status);
+CREATE INDEX IF NOT EXISTS idx_users_role ON users (role);
 
 -- 2. PASSWORD HISTORY
 CREATE TABLE IF NOT EXISTS password_history (
@@ -65,7 +67,9 @@ CREATE TABLE IF NOT EXISTS bookings (
     emi_rate         DOUBLE PRECISION DEFAULT 0,
     emi_monthly      DOUBLE PRECISION DEFAULT 0,
     emi_total_payable DOUBLE PRECISION DEFAULT 0,
-    emi_next_date    VARCHAR DEFAULT ''
+    emi_next_date    VARCHAR DEFAULT '',
+    latitude         DOUBLE PRECISION DEFAULT NULL,
+    longitude        DOUBLE PRECISION DEFAULT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_bookings_user ON bookings (user_id);
