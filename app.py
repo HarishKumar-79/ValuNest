@@ -301,18 +301,13 @@ def index():
 
 @app.route('/register', methods=['GET','POST'])
 def register():
-    if request.method == 'GET' and (firebase_enabled() or oauth_enabled()):
-        return render_template("register.html")
     if request.method=='POST':
-        if firebase_enabled() or oauth_enabled():
-            flash("Please use Google sign-in to create an account.","error")
-            return render_template("register.html")
         name=request.form['name'].strip()
         email=request.form['email'].strip().lower()
         pw=request.form['password']
         confirm=request.form['confirm']
-        if not is_google_email(email):
-            flash("Please register with a Google email address such as @gmail.com.","error")
+        if db.get_user_by_email(email):
+            flash("This email is already registered. Please log in or use a different email.","error")
             return render_template("register.html",name=name,email=email)
         errs=validate_password(pw)
         if errs: return render_template("register.html",pw_errors=errs,name=name,email=email)
@@ -331,12 +326,7 @@ def register():
 
 @app.route('/login', methods=['GET','POST'])
 def login():
-    if request.method == 'GET' and (firebase_enabled() or oauth_enabled()):
-        return render_template("login.html")
     if request.method=='POST':
-        if firebase_enabled() or oauth_enabled():
-            flash("Please use Google sign-in to access your account.","error")
-            return render_template("login.html")
         email=request.form['email'].strip().lower()
         pw=request.form['password']
         user = db.get_user_by_email(email)
@@ -489,9 +479,11 @@ def profile():
         phone=request.form.get('phone','').strip()
         address=request.form.get('address','').strip()
         email=request.form['email'].strip().lower()
-        if not is_google_email(email):
-            flash("Please keep a Google email address such as @gmail.com.","error")
-            return render_template("profile.html",user=user)
+        if email != user['email']:
+            existing = db.get_user_by_email(email)
+            if existing and existing['id'] != user['id']:
+                flash("This email is already taken by another account.","error")
+                return render_template("profile.html",user=user)
         photo=user['photo']
         if 'photo' in request.files:
             file=request.files['photo']
@@ -1002,10 +994,7 @@ def edit_user(user_id):
     if request.method=='POST':
         name=request.form['name'].strip(); email=request.form['email'].strip().lower()
         status=request.form['status']; new_pw=request.form.get('password','').strip()
-        if not is_google_email(email):
-            user = db.get_user_by_id(user_id)
-            flash("Admin can only save Google email addresses.","error")
-            return render_template("edit_user.html",user=user)
+
         if new_pw:
             errs=validate_password(new_pw)
             if errs:
