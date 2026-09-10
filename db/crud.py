@@ -109,6 +109,32 @@ def init_db():
             expires_at REAL NOT NULL,
             used INTEGER DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
+        conn.execute("""CREATE TABLE IF NOT EXISTS billing (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            booking_id INTEGER NOT NULL, user_id INTEGER NOT NULL,
+            invoice_number TEXT NOT NULL UNIQUE,
+            billing_name TEXT NOT NULL DEFAULT '',
+            billing_email TEXT NOT NULL DEFAULT '',
+            billing_phone TEXT DEFAULT '',
+            billing_address TEXT DEFAULT '',
+            subtotal REAL NOT NULL DEFAULT 0,
+            tax_rate REAL NOT NULL DEFAULT 0,
+            tax_amount REAL NOT NULL DEFAULT 0,
+            discount REAL NOT NULL DEFAULT 0,
+            total REAL NOT NULL DEFAULT 0,
+            payment_method TEXT DEFAULT '',
+            payment_status TEXT DEFAULT 'paid',
+            notes TEXT DEFAULT '',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
+        conn.execute("""CREATE TABLE IF NOT EXISTS emi_payments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            billing_id INTEGER NOT NULL, booking_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL, installment_no INTEGER NOT NULL,
+            due_date TEXT NOT NULL, amount_due REAL NOT NULL DEFAULT 0,
+            amount_paid REAL NOT NULL DEFAULT 0, penalty REAL NOT NULL DEFAULT 0,
+            status TEXT DEFAULT 'pending', paid_at TIMESTAMP,
+            txn_id TEXT DEFAULT '', payment_method TEXT DEFAULT '',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)""")
         conn.execute(
             "INSERT OR IGNORE INTO app_settings (key, value) VALUES (?, ?)",
             ("emi_rate", "12"),
@@ -1074,3 +1100,451 @@ def _aggregate_monthly_sum(rows, date_field, value_field, limit=12):
             months[val[:7]] += float(r.get(value_field) or 0)
     sorted_months = sorted(months.items(), reverse=True)[:limit]
     return [{"month": m, "total": t} for m, t in sorted_months]
+
+
+# ════════════════════════════════════════════════════════════════
+# BILLING — Invoice Records
+# ════════════════════════════════════════════════════════════════
+
+def _generate_invoice_number():
+    """Generate a unique invoice number like VN-20260910-XXXX."""
+    import uuid
+    from datetime import date
+    today = date.today().strftime("%Y%m%d")
+    short_id = uuid.uuid4().hex[:6].upper()
+    return f"VN-{today}-{short_id}"
+
+
+def create_billing(booking_id, user_id, billing_name, billing_email,
+                   subtotal, total, payment_method="",
+                   billing_phone="", billing_address="",
+                   tax_rate=0, tax_amount=0, discount=0,
+                   payment_status="paid", notes=""):
+    """Create a billing/invoice record for a confirmed booking.
+
+    Returns the created billing row (dict) or None on error.
+    """
+    invoice_number = _generate_invoice_number()
+    if is_supabase_configured():
+        try:
+            result = _sb().table("billing").insert({
+                "booking_id": booking_id,
+                "user_id": user_id,
+                "invoice_number": invoice_number,
+                "billing_name": billing_name,
+                "billing_email": billing_email,
+                "billing_phone": billing_phone or "",
+                "billing_address": billing_address or "",
+                "subtotal": subtotal,
+                "tax_rate": tax_rate or 0,
+                "tax_amount": tax_amount or 0,
+                "discount": discount or 0,
+                "total": total,
+                "payment_method": payment_method or "",
+                "payment_status": payment_status or "paid",
+                "notes": notes or "",
+            }).execute()
+            return _wrap(result.data[0]) if result.data else None
+        except Exception as e:
+            print(f"Error in create_billing: {e}")
+            return None
+    else:
+        conn = _get_sqlite()
+        cur = conn.execute(
+            """INSERT INTO billing
+            (booking_id, user_id, invoice_number, billing_name,
+             billing_email, billing_phone, billing_address,
+             subtotal, tax_rate, tax_amount, discount, total,
+             payment_method, payment_status, notes)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (booking_id, user_id, invoice_number, billing_name,
+             billing_email, billing_phone or "", billing_address or "",
+             subtotal, tax_rate or 0, tax_amount or 0, discount or 0,
+             total, payment_method or "", payment_status or "paid",
+             notes or ""),
+        )
+        conn.commit()
+        row = conn.execute(
+            "SELECT * FROM billing WHERE id=?", (cur.lastrowid,)
+        ).fetchone()
+        conn.close()
+        return _wrap(row)
+
+
+def get_billing_by_id(billing_id):
+    """Get a single billing record by ID."""
+    if is_supabase_configured():
+        try:
+            result = (_sb().table("billing").select("*")
+                      .eq("id", billing_id).limit(1).execute())
+            return _wrap(result.data[0]) if result.data else None
+        except Exception as e:
+            print(f"Error in get_billing_by_id: {e}")
+            return None
+    else:
+        conn = _get_sqlite()
+        row = conn.execute(
+            "SELECT * FROM billing WHERE id=?", (billing_id,)
+        ).fetchone()
+        conn.close()
+        return _wrap(row)
+
+
+def get_billing_by_invoice(invoice_number):
+    """Get a billing record by invoice number."""
+    if is_supabase_configured():
+        try:
+            result = (_sb().table("billing").select("*")
+                      .eq("invoice_number", invoice_number)
+                      .limit(1).execute())
+            return _wrap(result.data[0]) if result.data else None
+        except Exception as e:
+            print(f"Error in get_billing_by_invoice: {e}")
+            return None
+    else:
+        conn = _get_sqlite()
+        row = conn.execute(
+            "SELECT * FROM billing WHERE invoice_number=?",
+            (invoice_number,),
+        ).fetchone()
+        conn.close()
+        return _wrap(row)
+
+
+def get_billing_by_booking(booking_id):
+    """Get billing record(s) for a specific booking."""
+    if is_supabase_configured():
+        try:
+            result = (_sb().table("billing").select("*")
+                      .eq("booking_id", booking_id)
+                      .order("created_at", desc=True).execute())
+            return _wrap_list(result.data)
+        except Exception as e:
+            print(f"Error in get_billing_by_booking: {e}")
+            return []
+    else:
+        conn = _get_sqlite()
+        rows = conn.execute(
+            "SELECT * FROM billing WHERE booking_id=? ORDER BY created_at DESC",
+            (booking_id,),
+        ).fetchall()
+        conn.close()
+        return _wrap_list(rows)
+
+
+def get_user_billing(user_id):
+    """Get all billing records for a user."""
+    if is_supabase_configured():
+        try:
+            result = (_sb().table("billing").select("*")
+                      .eq("user_id", user_id)
+                      .order("created_at", desc=True).execute())
+            return _wrap_list(result.data)
+        except Exception as e:
+            print(f"Error in get_user_billing: {e}")
+            return []
+    else:
+        conn = _get_sqlite()
+        rows = conn.execute(
+            "SELECT * FROM billing WHERE user_id=? ORDER BY created_at DESC",
+            (user_id,),
+        ).fetchall()
+        conn.close()
+        return _wrap_list(rows)
+
+
+def get_all_billing():
+    """Get all billing records (admin)."""
+    if is_supabase_configured():
+        try:
+            result = (_sb().table("billing").select("*")
+                      .order("created_at", desc=True).execute())
+            return _wrap_list(result.data)
+        except Exception as e:
+            print(f"Error in get_all_billing: {e}")
+            return []
+    else:
+        conn = _get_sqlite()
+        rows = conn.execute(
+            "SELECT * FROM billing ORDER BY created_at DESC"
+        ).fetchall()
+        conn.close()
+        return _wrap_list(rows)
+
+
+def update_billing(billing_id, **fields):
+    """Update a billing record."""
+    if not fields:
+        return
+    if is_supabase_configured():
+        try:
+            _sb().table("billing").update(fields).eq("id", billing_id).execute()
+        except Exception as e:
+            print(f"Error in update_billing: {e}")
+    else:
+        conn = _get_sqlite()
+        parts = ", ".join(f"{k}=?" for k in fields)
+        conn.execute(
+            f"UPDATE billing SET {parts} WHERE id=?",
+            (*fields.values(), billing_id),
+        )
+        conn.commit()
+        conn.close()
+
+
+def delete_billing(billing_id):
+    """Delete a billing record by ID."""
+    if is_supabase_configured():
+        try:
+            _sb().table("billing").delete().eq("id", billing_id).execute()
+        except Exception as e:
+            print(f"Error in delete_billing: {e}")
+    else:
+        conn = _get_sqlite()
+        conn.execute("DELETE FROM billing WHERE id=?", (billing_id,))
+        conn.commit()
+        conn.close()
+
+
+# ════════════════════════════════════════════════════════════════
+# EMI PAYMENTS — Installment Tracking
+# ════════════════════════════════════════════════════════════════
+
+def create_emi_schedule(billing_id, booking_id, user_id,
+                        tenure, monthly_amount, start_date=None):
+    """Create the full EMI schedule (one row per installment).
+
+    Args:
+        billing_id: the parent billing record
+        booking_id: the associated booking
+        user_id: the buyer
+        tenure: number of monthly installments
+        monthly_amount: amount due each month
+        start_date: first due date (defaults to next month)
+
+    Returns a list of created emi_payment rows.
+    """
+    from datetime import date, timedelta
+    from dateutil.relativedelta import relativedelta
+
+    if start_date is None:
+        start_date = date.today() + relativedelta(months=1)
+    elif isinstance(start_date, str):
+        start_date = date.fromisoformat(start_date)
+
+    rows_created = []
+    for i in range(1, tenure + 1):
+        due = start_date + relativedelta(months=i - 1)
+        row = create_emi_payment(
+            billing_id=billing_id,
+            booking_id=booking_id,
+            user_id=user_id,
+            installment_no=i,
+            due_date=due.isoformat(),
+            amount_due=monthly_amount,
+        )
+        if row:
+            rows_created.append(row)
+    return rows_created
+
+
+def create_emi_payment(billing_id, booking_id, user_id,
+                       installment_no, due_date, amount_due,
+                       amount_paid=0, status="pending"):
+    """Create a single EMI installment record."""
+    if is_supabase_configured():
+        try:
+            result = _sb().table("emi_payments").insert({
+                "billing_id": billing_id,
+                "booking_id": booking_id,
+                "user_id": user_id,
+                "installment_no": installment_no,
+                "due_date": due_date,
+                "amount_due": amount_due,
+                "amount_paid": amount_paid or 0,
+                "status": status or "pending",
+            }).execute()
+            return _wrap(result.data[0]) if result.data else None
+        except Exception as e:
+            print(f"Error in create_emi_payment: {e}")
+            return None
+    else:
+        conn = _get_sqlite()
+        cur = conn.execute(
+            """INSERT INTO emi_payments
+            (billing_id, booking_id, user_id, installment_no,
+             due_date, amount_due, amount_paid, status)
+            VALUES (?,?,?,?,?,?,?,?)""",
+            (billing_id, booking_id, user_id, installment_no,
+             due_date, amount_due, amount_paid or 0,
+             status or "pending"),
+        )
+        conn.commit()
+        row = conn.execute(
+            "SELECT * FROM emi_payments WHERE id=?", (cur.lastrowid,)
+        ).fetchone()
+        conn.close()
+        return _wrap(row)
+
+
+def get_emi_payments_by_billing(billing_id):
+    """Get all installments for a billing record, ordered by installment_no."""
+    if is_supabase_configured():
+        try:
+            result = (_sb().table("emi_payments").select("*")
+                      .eq("billing_id", billing_id)
+                      .order("installment_no").execute())
+            return _wrap_list(result.data)
+        except Exception as e:
+            print(f"Error in get_emi_payments_by_billing: {e}")
+            return []
+    else:
+        conn = _get_sqlite()
+        rows = conn.execute(
+            "SELECT * FROM emi_payments WHERE billing_id=? ORDER BY installment_no",
+            (billing_id,),
+        ).fetchall()
+        conn.close()
+        return _wrap_list(rows)
+
+
+def get_emi_payments_by_booking(booking_id):
+    """Get all EMI installments for a booking."""
+    if is_supabase_configured():
+        try:
+            result = (_sb().table("emi_payments").select("*")
+                      .eq("booking_id", booking_id)
+                      .order("installment_no").execute())
+            return _wrap_list(result.data)
+        except Exception as e:
+            print(f"Error in get_emi_payments_by_booking: {e}")
+            return []
+    else:
+        conn = _get_sqlite()
+        rows = conn.execute(
+            "SELECT * FROM emi_payments WHERE booking_id=? ORDER BY installment_no",
+            (booking_id,),
+        ).fetchall()
+        conn.close()
+        return _wrap_list(rows)
+
+
+def get_user_emi_payments(user_id, status=None):
+    """Get all EMI installments for a user, optionally filtered by status."""
+    if is_supabase_configured():
+        try:
+            q = _sb().table("emi_payments").select("*").eq("user_id", user_id)
+            if status:
+                q = q.eq("status", status)
+            result = q.order("due_date").execute()
+            return _wrap_list(result.data)
+        except Exception as e:
+            print(f"Error in get_user_emi_payments: {e}")
+            return []
+    else:
+        conn = _get_sqlite()
+        sql = "SELECT * FROM emi_payments WHERE user_id=?"
+        params = [user_id]
+        if status:
+            sql += " AND status=?"
+            params.append(status)
+        sql += " ORDER BY due_date"
+        rows = conn.execute(sql, params).fetchall()
+        conn.close()
+        return _wrap_list(rows)
+
+
+def get_overdue_emi_payments():
+    """Get all EMI installments that are overdue (past due_date and still pending)."""
+    from datetime import date
+    today = date.today().isoformat()
+    if is_supabase_configured():
+        try:
+            result = (_sb().table("emi_payments").select("*")
+                      .eq("status", "pending")
+                      .lt("due_date", today)
+                      .order("due_date").execute())
+            return _wrap_list(result.data)
+        except Exception as e:
+            print(f"Error in get_overdue_emi_payments: {e}")
+            return []
+    else:
+        conn = _get_sqlite()
+        rows = conn.execute(
+            "SELECT * FROM emi_payments WHERE status='pending' AND due_date < ? ORDER BY due_date",
+            (today,),
+        ).fetchall()
+        conn.close()
+        return _wrap_list(rows)
+
+
+def mark_emi_paid(emi_id, txn_id="", payment_method="", penalty=0):
+    """Mark an EMI installment as paid."""
+    from datetime import datetime
+    now = datetime.utcnow().isoformat()
+    if is_supabase_configured():
+        try:
+            # First get the record to know amount_due
+            result = (_sb().table("emi_payments").select("amount_due")
+                      .eq("id", emi_id).limit(1).execute())
+            amount_due = result.data[0]["amount_due"] if result.data else 0
+            _sb().table("emi_payments").update({
+                "status": "paid",
+                "amount_paid": amount_due,
+                "paid_at": now,
+                "txn_id": txn_id or "",
+                "payment_method": payment_method or "",
+                "penalty": penalty or 0,
+            }).eq("id", emi_id).execute()
+        except Exception as e:
+            print(f"Error in mark_emi_paid: {e}")
+    else:
+        conn = _get_sqlite()
+        row = conn.execute(
+            "SELECT amount_due FROM emi_payments WHERE id=?", (emi_id,)
+        ).fetchone()
+        amount_due = row[0] if row else 0
+        conn.execute(
+            """UPDATE emi_payments
+            SET status='paid', amount_paid=?, paid_at=?,
+                txn_id=?, payment_method=?, penalty=?
+            WHERE id=?""",
+            (amount_due, now, txn_id or "",
+             payment_method or "", penalty or 0, emi_id),
+        )
+        conn.commit()
+        conn.close()
+
+
+def update_emi_payment(emi_id, **fields):
+    """Update an EMI payment record."""
+    if not fields:
+        return
+    if is_supabase_configured():
+        try:
+            _sb().table("emi_payments").update(fields).eq("id", emi_id).execute()
+        except Exception as e:
+            print(f"Error in update_emi_payment: {e}")
+    else:
+        conn = _get_sqlite()
+        parts = ", ".join(f"{k}=?" for k in fields)
+        conn.execute(
+            f"UPDATE emi_payments SET {parts} WHERE id=?",
+            (*fields.values(), emi_id),
+        )
+        conn.commit()
+        conn.close()
+
+
+def delete_emi_payment(emi_id):
+    """Delete an EMI payment record."""
+    if is_supabase_configured():
+        try:
+            _sb().table("emi_payments").delete().eq("id", emi_id).execute()
+        except Exception as e:
+            print(f"Error in delete_emi_payment: {e}")
+    else:
+        conn = _get_sqlite()
+        conn.execute("DELETE FROM emi_payments WHERE id=?", (emi_id,))
+        conn.commit()
+        conn.close()

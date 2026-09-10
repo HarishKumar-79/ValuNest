@@ -41,6 +41,8 @@ You can verify by going to **Table Editor** in the sidebar — you should see:
 - `messages`
 - `app_settings`
 - `password_resets`
+- `billing`
+- `emi_payments`
 
 ---
 
