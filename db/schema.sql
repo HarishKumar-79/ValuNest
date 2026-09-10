@@ -187,23 +187,22 @@ ALTER TABLE password_resets  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE billing          ENABLE ROW LEVEL SECURITY;
 ALTER TABLE emi_payments     ENABLE ROW LEVEL SECURITY;
 
--- Allow service_role full access (these policies apply to
--- authenticated requests when using anon key):
-CREATE POLICY "Service role full access" ON users
+-- Allow service_role full access (restricted to service_role to satisfy security advisor):
+CREATE POLICY "Service role full access" ON users TO service_role
     FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Service role full access" ON password_history
+CREATE POLICY "Service role full access" ON password_history TO service_role
     FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Service role full access" ON login_logs
+CREATE POLICY "Service role full access" ON login_logs TO service_role
     FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Service role full access" ON bookings
+CREATE POLICY "Service role full access" ON bookings TO service_role
     FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Service role full access" ON messages
+CREATE POLICY "Service role full access" ON messages TO service_role
     FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Service role full access" ON app_settings
+CREATE POLICY "Service role full access" ON app_settings TO service_role
     FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Service role full access" ON password_resets
+CREATE POLICY "Service role full access" ON password_resets TO service_role
     FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Service role full access" ON billing
+CREATE POLICY "Service role full access" ON billing TO service_role
     FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Service role full access" ON emi_payments
+CREATE POLICY "Service role full access" ON emi_payments TO service_role
     FOR ALL USING (true) WITH CHECK (true);
