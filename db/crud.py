@@ -55,9 +55,10 @@ def init_db():
                 {"key": "emi_rate", "value": "12"},
                 on_conflict="key",
             ).execute()
-            print("✓ Supabase connected and initialized.")
+            print("[OK] Supabase connected and initialized.")
+            sync_all_confirmed_bookings_to_billing()
         except Exception as e:
-            print(f"✗ Supabase initialization error: {e}")
+            print(f"[ERROR] Supabase initialization error: {e}")
     else:
         conn = _get_sqlite()
         conn.execute("""CREATE TABLE IF NOT EXISTS users (
@@ -152,7 +153,8 @@ def init_db():
             except Exception:
                 pass  # Column already exists
         conn.close()
-        print("✓ SQLite database initialized.")
+        print("[OK] SQLite database initialized.")
+        sync_all_confirmed_bookings_to_billing()
 
 
 # ════════════════════════════════════════════════════════════════
@@ -353,13 +355,16 @@ def create_booking(user_id, user_name, city, location, price,
     if is_supabase_configured():
         try:
             result = _sb().table("bookings").insert(data).execute()
-            return _wrap(result.data[0]) if result.data else None
+            created = _wrap(result.data[0]) if result.data else None
+            if created and status == "confirmed":
+                _ensure_billing_for_booking(created)
+            return created
         except Exception as e:
             print(f"Error in create_booking: {e}")
             return None
     else:
         conn = _get_sqlite()
-        conn.execute(
+        cur = conn.execute(
             """INSERT INTO bookings
                (user_id,user_name,city,location,price,booking_type,status,
                 payment_method,txn_id,paid_at,payment_bank,
@@ -371,7 +376,12 @@ def create_booking(user_id, user_name, city, location, price,
              emi_monthly or 0, emi_total_payable or 0, emi_next_date or ""),
         )
         conn.commit()
+        last_id = cur.lastrowid
         conn.close()
+        if status == "confirmed" and last_id:
+            created = get_booking_by_id(last_id)
+            if created:
+                _ensure_billing_for_booking(created)
         return True
 
 
@@ -530,6 +540,9 @@ def confirm_booking(booking_id, payment_method, txn_id, paid_at,
         emi_total_payable=emi_total_payable or 0,
         emi_next_date=emi_next_date or "",
     )
+    b = get_booking_by_id(booking_id)
+    if b:
+        _ensure_billing_for_booking(b)
 
 
 def delete_booking(booking_id):
@@ -1548,3 +1561,74 @@ def delete_emi_payment(emi_id):
         conn.execute("DELETE FROM emi_payments WHERE id=?", (emi_id,))
         conn.commit()
         conn.close()
+
+
+def _ensure_billing_for_booking(booking):
+    """Ensure a billing entry (and optional EMI schedule) exists for a confirmed booking."""
+    if not booking:
+        return None
+
+    status = booking["status"] if (isinstance(booking, dict) or hasattr(booking, "__getitem__")) else getattr(booking, "status", None)
+    if status != "confirmed":
+        return None
+
+    booking_id = booking["id"]
+    existing = get_billing_by_booking(booking_id)
+    if existing:
+        return existing[0] if isinstance(existing, list) and existing else existing
+
+    user_id = booking["user_id"]
+    user = get_user_by_id(user_id)
+
+    billing_email = (user["email"] if user and "email" in user else "") or ""
+    billing_phone = (user["phone"] if user and "phone" in user else "") or ""
+    billing_address = (user["address"] if user and "address" in user else "") or ""
+    user_name = booking["user_name"] if "user_name" in booking else "Customer"
+
+    price = float(booking["price"] or 0)
+    payment_method = booking["payment_method"] if (isinstance(booking, dict) or hasattr(booking, "__getitem__")) else getattr(booking, "payment_method", "Online")
+    payment_method = payment_method or "Online"
+
+    billing = create_billing(
+        booking_id=booking_id,
+        user_id=user_id,
+        billing_name=user_name,
+        billing_email=billing_email,
+        billing_phone=billing_phone,
+        billing_address=billing_address,
+        subtotal=price,
+        total=price,
+        payment_method=payment_method,
+        payment_status="paid",
+        notes=f"Booking for {booking.get('location', '') if isinstance(booking, dict) else getattr(booking, 'location', '')}, {booking.get('city', '') if isinstance(booking, dict) else getattr(booking, 'city', '')}"
+    )
+
+    emi_tenure = booking["emi_tenure"] if (isinstance(booking, dict) or hasattr(booking, "__getitem__")) else getattr(booking, "emi_tenure", 0)
+    emi_monthly = booking["emi_monthly"] if (isinstance(booking, dict) or hasattr(booking, "__getitem__")) else getattr(booking, "emi_monthly", 0)
+
+    if payment_method == "EMI" and emi_tenure and billing:
+        tenure = int(emi_tenure or 0)
+        monthly_amount = float(emi_monthly or 0)
+        if tenure > 0 and monthly_amount > 0:
+            create_emi_schedule(
+                billing_id=billing["id"],
+                booking_id=booking_id,
+                user_id=user_id,
+                tenure=tenure,
+                monthly_amount=monthly_amount
+            )
+
+    return billing
+
+
+def sync_all_confirmed_bookings_to_billing():
+    """Sync any existing confirmed bookings into billing table."""
+    try:
+        confirmed = get_all_bookings()
+        for b in (confirmed or []):
+            st = b["status"] if (isinstance(b, dict) or hasattr(b, "__getitem__")) else getattr(b, "status", None)
+            if st == "confirmed":
+                _ensure_billing_for_booking(b)
+    except Exception as e:
+        print(f"Error in sync_all_confirmed_bookings_to_billing: {e}")
+
