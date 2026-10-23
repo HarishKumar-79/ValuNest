@@ -1,95 +1,254 @@
 {% extends "base.html" %}
-{% block title %}HomeFinder — Find Your Dream Home{% endblock %}
+{% block title %}User Dashboard — ValuNest{% endblock %}
 {% block content %}
 
-<!-- Hero -->
-<div class="hero">
-  <div class="hero-bg">{% for i in range(30) %}🏠 {% endfor %}</div>
-  <div class="hero-content">
-    <span class="hero-badge">🤖 ML-powered price prediction</span>
-    <h1 class="hero-title">Find Your Dream Home<br><span class="hero-accent">at the Right Price</span></h1>
-    <p class="hero-sub">AI price prediction · Real listings · Satellite maps · Instant booking</p>
-    <div class="hero-btns">
-      <a href="{{ url_for('select_city') }}" class="hero-btn-primary">🔍 Search Properties →</a>
-      <a href="{{ url_for('user_history') }}" class="hero-btn-outline">🛒 My Cart</a>
+<!-- Hero Welcome Banner (Purple + White + Indigo Theme) -->
+<div style="background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 50%, #ffffff 100%); border: 1.5px solid #c7d2fe; border-radius: 22px; padding: 32px 36px; margin-bottom: 30px; box-shadow: 0 8px 28px rgba(99,102,241,0.08); position: relative; overflow: hidden;">
+  <!-- Shimmering top border -->
+  <div style="position:absolute;top:0;left:0;right:0;height:4px;background:linear-gradient(90deg, #c7d2fe, #818cf8, #4f46e5, #7c3aed, #c7d2fe);background-size:200% 100%;animation:shimmerGrad 3s ease infinite;"></div>
+  <style>@keyframes shimmerGrad{0%{background-position:200% 0}100%{background-position:-200% 0}}</style>
+
+  <div style="display:inline-flex;align-items:center;gap:8px;background:#ffffff;border:1px solid #c7d2fe;padding:5px 14px;border-radius:20px;font-size:12px;font-weight:700;color:#4338ca;margin-bottom:12px;box-shadow:0 2px 8px rgba(99,102,241,0.08);">
+    <span>🏠</span> ValuNest Property Intelligence Hub
+  </div>
+
+  <!-- Light-to-Bright Gradient Heading -->
+  <h2 class="heading-light-to-bright" style="font-size: 32px; font-weight: 900; margin: 0 0 10px; letter-spacing: -0.6px;">Welcome back, {{ session.user_name }}! 👋</h2>
+  <p style="font-size: 14.5px; color: #475569; margin: 0 0 16px; max-width: 650px; line-height: 1.55;">Real-time housing valuation, verified micro-market pricing trends & smart property booking across 6 top Indian metros.</p>
+
+  {% if session.get('city') %}
+  <div style="display:inline-flex;align-items:center;gap:10px;background:#ffffff;border:1.5px solid #c7d2fe;border-radius:12px;padding:8px 16px;box-shadow:0 2px 8px rgba(99,102,241,0.08);">
+    <span style="font-size:16px;">📍</span>
+    <span style="font-size:13.5px;font-weight:700;color:#312e81;">{{ session['city'] }}{% if session.get('location') %} &bull; {{ session['location'] }}{% endif %}</span>
+    <a href="{{ url_for('select_city') }}" style="background:#f5f3ff;color:#4f46e5;border:1px solid #c7d2fe;padding:4px 12px;border-radius:8px;font-size:11.5px;font-weight:700;text-decoration:none;">Change City</a>
+  </div>
+  {% endif %}
+
+  <!-- Luxury House Picture Banner (Clean showcase without buttons above or below) -->
+  <div style="margin-top: 24px; border-radius: 18px; overflow: hidden; border: 1.5px solid #c7d2fe; box-shadow: 0 10px 30px -5px rgba(79,70,229,0.2); position: relative; max-height: 380px;">
+    <img src="{{ url_for('static', filename='modern_luxury_house.jpg') }}" alt="Modern Luxury Villa Architecture" style="width: 100%; height: 360px; object-fit: cover; display: block; filter: brightness(0.96);">
+    <div style="position: absolute; bottom: 0; left: 0; right: 0; padding: 22px 28px; background: linear-gradient(180deg, transparent 0%, rgba(30,27,75,0.85) 100%); color: #ffffff;">
+      <div style="font-size: 11.5px; font-weight: 700; color: #c4b5fd; text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 4px;">Verified Architectural Showcase</div>
+      <div style="font-size: 20px; font-weight: 800; text-shadow: 0 2px 8px rgba(0,0,0,0.4);">Prime Luxury Villa & AI Fair Valuation Engine</div>
     </div>
+  </div>
+
+</div>
+
+<!-- Quick City Selector Carousel (Purple + Indigo) -->
+<div style="margin-bottom: 28px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+    <span style="font-size:13px;font-weight:700;color:#4338ca;text-transform:uppercase;letter-spacing:0.5px;">⚡ Quick Switch City</span>
+    <span style="font-size:12px;color:#64748b;">Instant micro-market pricing for 6 Indian metros</span>
+  </div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;">
+    {% set city_emojis = {'Bangalore':'🌿','Mumbai':'🌊','Delhi':'🏛️','Hyderabad':'💎','Chennai':'☀️','Kolkata':'🌸'} %}
+    {% for c, emoji in city_emojis.items() %}
+      <a href="{{ url_for('set_city', city=c) }}" 
+         style="display:inline-flex;align-items:center;gap:8px;padding:9px 18px;border-radius:12px;font-size:13px;font-weight:700;text-decoration:none;transition:all 0.2s ease;
+         {% if session.get('city') == c %}
+           background:linear-gradient(135deg, #4338ca, #6366f1);color:#ffffff;box-shadow:0 4px 14px rgba(99,102,241,0.35);border:1.5px solid #4338ca;
+         {% else %}
+           background:#ffffff;color:#1e293b;border:1.5px solid #c7d2fe;box-shadow:0 2px 6px rgba(0,0,0,0.03);
+         {% endif %}">
+        <span>{{ emoji }}</span>
+        <span>{{ c }}</span>
+        {% if session.get('city') == c %}
+          <span style="background:rgba(255,255,255,0.25);padding:1px 7px;border-radius:10px;font-size:11px;">Active</span>
+        {% endif %}
+      </a>
+    {% endfor %}
   </div>
 </div>
 
-<!-- Stats -->
-<div class="stats-bar">
-  <div class="stat"><span class="stat-num">32,963</span><span class="stat-label">Properties</span></div>
-  <div class="stat-div"></div>
-  <div class="stat"><span class="stat-num">6</span><span class="stat-label">Cities</span></div>
-  <div class="stat-div"></div>
-  <div class="stat"><span class="stat-num">AI</span><span class="stat-label">Price Prediction</span></div>
-  <div class="stat-div"></div>
-  <div class="stat"><span class="stat-num">🛰</span><span class="stat-label">Satellite Maps</span></div>
-  <div class="stat-div"></div>
-  <div class="stat"><span class="stat-num">Free</span><span class="stat-label">To Use</span></div>
+<!-- 5 Stat Cards in Purple, Indigo & White -->
+<div class="hms-stats-grid" style="margin-bottom: 32px;">
+
+  <a href="{{ url_for('user_history') }}" class="hms-stat-card" id="stat-cart" style="background:#ffffff;border:1.5px solid #c7d2fe;border-radius:16px;box-shadow:0 4px 16px rgba(99,102,241,0.06);">
+    <div class="hms-stat-icon-box" style="background:#f5f3ff;color:#4f46e5;border:1px solid #c7d2fe;font-size:18px;">🛒</div>
+    <div class="hms-stat-info">
+      <div class="hms-stat-number" style="color:#312e81;">{{ cart_count }}</div>
+      <div class="hms-stat-label">Pending In Cart</div>
+    </div>
+  </a>
+
+  <a href="{{ url_for('user_history') }}" class="hms-stat-card" id="stat-purchased" style="background:#ffffff;border:1.5px solid #c7d2fe;border-radius:16px;box-shadow:0 4px 16px rgba(99,102,241,0.06);">
+    <div class="hms-stat-icon-box" style="background:#f5f3ff;color:#7c3aed;border:1px solid #c7d2fe;font-size:18px;">🏆</div>
+    <div class="hms-stat-info">
+      <div class="hms-stat-number" style="color:#312e81;">{{ purchased_count }}</div>
+      <div class="hms-stat-label">Homes Purchased</div>
+    </div>
+  </a>
+
+  <a href="{{ url_for('messages') }}" class="hms-stat-card" id="stat-messages" style="background:#ffffff;border:1.5px solid #c7d2fe;border-radius:16px;box-shadow:0 4px 16px rgba(99,102,241,0.06);">
+    <div class="hms-stat-icon-box" style="background:#f5f3ff;color:#6366f1;border:1px solid #c7d2fe;font-size:18px;">💬</div>
+    <div class="hms-stat-info">
+      <div class="hms-stat-number" style="color:#312e81;">{{ message_count }}</div>
+      <div class="hms-stat-label">Support Messages</div>
+    </div>
+  </a>
+
+  <a href="{{ url_for('predict') }}" class="hms-stat-card" id="stat-cities" style="background:#ffffff;border:1.5px solid #c7d2fe;border-radius:16px;box-shadow:0 4px 16px rgba(99,102,241,0.06);">
+    <div class="hms-stat-icon-box" style="background:#f5f3ff;color:#4338ca;border:1px solid #c7d2fe;font-size:18px;">🏙️</div>
+    <div class="hms-stat-info">
+      <div class="hms-stat-number" style="color:#312e81;">6</div>
+      <div class="hms-stat-label">Major Metros</div>
+    </div>
+  </a>
+
+  <a href="{{ url_for('profile') }}" class="hms-stat-card" id="stat-logins" style="background:#ffffff;border:1.5px solid #c7d2fe;border-radius:16px;box-shadow:0 4px 16px rgba(99,102,241,0.06);">
+    <div class="hms-stat-icon-box" style="background:#f5f3ff;color:#4f46e5;border:1px solid #c7d2fe;font-size:18px;">🔑</div>
+    <div class="hms-stat-info">
+      <div class="hms-stat-number" style="color:#312e81;">{{ login_count }}</div>
+      <div class="hms-stat-label">Total Logins</div>
+    </div>
+  </a>
+
 </div>
 
-<!-- How it works -->
-<div class="section">
-  <div class="section-inner">
-    <div class="section-header">
-      <h2>How it works</h2>
-      <p>3 simple steps to find your perfect home</p>
-    </div>
-    <div class="steps-grid">
-      <div class="step-card">
-        <div class="step-num">01</div>
-        <div class="step-icon">🏙</div>
-        <h3>Select city & location</h3>
-        <p>Choose from 6 major Indian cities and pick your preferred neighbourhood from hundreds of locations.</p>
+<!-- Quick Actions Section (Core Features) -->
+<div class="hms-section" style="margin-bottom: 36px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+    <h3 class="hms-section-title" style="margin:0;font-size:18px;font-weight:700;color:#0f172a;">Core Features</h3>
+    <span style="font-size:12px;color:#64748b;">Instant property evaluation & tracking</span>
+  </div>
+  
+  <div class="hms-quick-actions" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
+
+    <a href="{% if session.get('city') %}{{ url_for('predict') }}{% else %}{{ url_for('select_city', flow='predict') }}{% endif %}" class="hms-action-card" id="action-predict" style="background:#ffffff;border:1.5px solid #c7d2fe;border-radius:16px;box-shadow:0 4px 16px rgba(99,102,241,0.05);position:relative;overflow:hidden;">
+      <div style="position:absolute;top:0;right:0;background:linear-gradient(135deg, #4338ca, #6366f1);color:#ffffff;font-size:10px;font-weight:700;padding:3px 10px;border-bottom-left-radius:8px;">AI ENGINE</div>
+      <div class="hms-action-icon" style="background:#f5f3ff;border:1px solid #c7d2fe;">🧮</div>
+      <div class="hms-action-title" style="color:#0f172a;">AI Price Prediction</div>
+      <div class="hms-action-desc">
+        {% if session.get('city') %}
+          Calculate valuation for properties in <strong>{{ session['city'] }}</strong>.
+        {% else %}
+          Choose a city and generate AI-powered price estimations in seconds.
+        {% endif %}
       </div>
-      <div class="step-card">
-        <div class="step-num">02</div>
-        <div class="step-icon">🧮</div>
-        <h3>Get AI price estimate</h3>
-        <p>Enter property details — our ML model trained on 32,963 homes gives you an accurate price instantly.</p>
-      </div>
-      <div class="step-card">
-        <div class="step-num">03</div>
-        <div class="step-icon">🗺</div>
-        <h3>View on satellite map</h3>
-        <p>See the exact location on a live satellite map, share it with family and complete your booking.</p>
-      </div>
-    </div>
+    </a>
+
+    <a href="{{ url_for('property_map') }}" class="hms-action-card" id="action-map" style="background:#ffffff;border:1.5px solid #c7d2fe;border-radius:16px;box-shadow:0 4px 16px rgba(99,102,241,0.05);">
+      <div class="hms-action-icon" style="background:#f5f3ff;border:1px solid #c7d2fe;">🗺️</div>
+      <div class="hms-action-title" style="color:#0f172a;">Satellite Property Map</div>
+      <div class="hms-action-desc">View your portfolio and purchased houses on live satellite maps.</div>
+    </a>
+
+    <a href="{{ url_for('user_history') }}" class="hms-action-card" id="action-cart" style="background:#ffffff;border:1.5px solid #c7d2fe;border-radius:16px;box-shadow:0 4px 16px rgba(99,102,241,0.05);">
+      <div class="hms-action-icon" style="background:#f5f3ff;border:1px solid #c7d2fe;">🛒</div>
+      <div class="hms-action-title" style="color:#0f172a;">My Cart & Orders</div>
+      <div class="hms-action-desc">Complete pending checkouts, download payment receipts & view order history.</div>
+    </a>
+
   </div>
 </div>
 
-<!-- Features -->
-<div class="section section-alt">
-  <div class="section-inner">
-    <div class="section-header">
-      <h2>Everything you need</h2>
-      <p>Powerful features built for home buyers</p>
+<!-- Recent Activity Section -->
+{% if cart or purchased %}
+<div class="hms-section" style="margin-bottom: 40px;">
+  <h3 class="hms-section-title" style="font-size:18px;font-weight:700;color:#0f172a;margin-bottom:16px;">Recent Transactions & Cart</h3>
+
+  {% if cart %}
+  <div class="hms-activity-group" style="background:#ffffff;border:1.5px solid #c7d2fe;border-radius:18px;padding:22px;margin-bottom:24px;box-shadow:0 4px 16px rgba(99,102,241,0.05);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <h4 class="hms-activity-heading" style="margin:0;font-size:16px;font-weight:800;color:#1e1b4b;">🛒 Cart Items (Payment Pending)</h4>
+      <span style="background:#f5f3ff;color:#4f46e5;border:1px solid #c7d2fe;padding:3px 12px;border-radius:12px;font-size:11.5px;font-weight:700;">{{ cart|length }} Pending</span>
     </div>
-    <div class="features-grid">
-      {% for icon, title, desc in [
-        ('🧮','ML Price Prediction','Linear regression model trained on 32,963 real properties gives accurate price estimates with ±8% range.'),
-        ('🛰','Satellite Maps','View exact property location on high-resolution satellite imagery before you buy.'),
-        ('🛒','Buy Now or Later','Add to cart and pay when you are ready. Properties are reserved while in your cart.'),
-        ('🔗','Share Properties','Share any property with family via WhatsApp, Telegram or copy link instantly.'),
-        ('🔐','Secure Login','Your account is protected with strong password requirements and encrypted storage.'),
-        ('📋','Full History','View all your cart items, purchases, transaction IDs and payment dates in one place.')
-      ] %}
-      <div class="feature-card">
-        <div class="feature-icon">{{ icon }}</div>
-        <h3>{{ title }}</h3>
-        <p>{{ desc }}</p>
-      </div>
-      {% endfor %}
+    
+    <div class="hms-table-wrap" style="border-radius:12px;overflow:hidden;border:1px solid #c7d2fe;">
+      <table class="hms-table" id="cart-table">
+        <thead>
+          <tr style="background:linear-gradient(135deg, #312e81, #4f46e5);">
+            <th style="background:#312e81 !important;color:#ffffff !important;padding:12px 16px;font-weight:700;font-size:12px;letter-spacing:0.5px;">Locality</th>
+            <th style="background:#312e81 !important;color:#ffffff !important;padding:12px 16px;font-weight:700;font-size:12px;letter-spacing:0.5px;">City</th>
+            <th style="background:#312e81 !important;color:#ffffff !important;padding:12px 16px;font-weight:700;font-size:12px;letter-spacing:0.5px;">Price</th>
+            <th style="background:#312e81 !important;color:#ffffff !important;padding:12px 16px;font-weight:700;font-size:12px;letter-spacing:0.5px;">Origin</th>
+            <th style="background:#312e81 !important;color:#ffffff !important;padding:12px 16px;font-weight:700;font-size:12px;letter-spacing:0.5px;">Added On</th>
+            <th style="background:#312e81 !important;color:#ffffff !important;padding:12px 16px;font-weight:700;font-size:12px;letter-spacing:0.5px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for b in cart %}
+          <tr>
+            <td class="fw-600" style="color:#0f172a;">📍 {{ b['location'] }}</td>
+            <td style="color:#334155;">{{ b['city'] }}</td>
+            <td class="fw-600" style="color:#4338ca;font-size:15px;">₹ {{ "{:,.0f}".format(b['price']) }}</td>
+            <td><span class="hms-badge" style="background:#f5f3ff;color:#4338ca;border:1px solid #c7d2fe;">{{ b['booking_type'] }}</span></td>
+            <td class="text-muted">{{ b['booked_at'][:10] }}</td>
+            <td>
+              <div class="hms-action-btns">
+                <a href="{{ url_for('pay_cart', booking_id=b['id']) }}" class="hms-btn-sm" style="background:linear-gradient(135deg, #7c3aed, #4f46e5);color:#ffffff;box-shadow:0 2px 8px rgba(79,70,229,0.3);" id="pay-{{ b['id'] }}">💳 Checkout</a>
+                <form method="post" action="{{ url_for('remove_cart', booking_id=b['id']) }}"
+                      onsubmit="return confirm('Remove from cart?')" style="margin:0;">
+                  <button type="submit" class="hms-btn-sm" style="background:#ffffff;color:#4338ca;border:1px solid #c7d2fe;" id="remove-{{ b['id'] }}">✕</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
   </div>
-</div>
+  {% endif %}
 
-<!-- CTA -->
-<div class="cta-section">
-  <h2>Ready to find your home?</h2>
-  <p>Join thousands of buyers who found their dream home</p>
-  <a href="{{ url_for('select_city') }}" class="cta-btn">Get Started Free →</a>
+  {% if purchased %}
+  <div class="hms-activity-group" style="background:#ffffff;border:1.5px solid #c7d2fe;border-radius:18px;padding:22px;box-shadow:0 4px 16px rgba(99,102,241,0.05);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <h4 class="hms-activity-heading" style="margin:0;font-size:16px;font-weight:800;color:#1e1b4b;">✅ Confirmed Property Purchases</h4>
+      <span style="background:#f5f3ff;color:#4338ca;border:1px solid #c7d2fe;padding:3px 12px;border-radius:12px;font-size:11.5px;font-weight:700;">{{ purchased|length }} Completed</span>
+    </div>
+    
+    <div class="hms-table-wrap" style="border-radius:12px;overflow:hidden;border:1px solid #c7d2fe;">
+      <table class="hms-table" id="purchases-table">
+        <thead>
+          <tr style="background:linear-gradient(135deg, #312e81, #4f46e5);">
+            <th style="background:#312e81 !important;color:#ffffff !important;padding:12px 16px;font-weight:700;font-size:12px;letter-spacing:0.5px;">Locality</th>
+            <th style="background:#312e81 !important;color:#ffffff !important;padding:12px 16px;font-weight:700;font-size:12px;letter-spacing:0.5px;">City</th>
+            <th style="background:#312e81 !important;color:#ffffff !important;padding:12px 16px;font-weight:700;font-size:12px;letter-spacing:0.5px;">Amount Paid</th>
+            <th style="background:#312e81 !important;color:#ffffff !important;padding:12px 16px;font-weight:700;font-size:12px;letter-spacing:0.5px;">Method</th>
+            <th style="background:#312e81 !important;color:#ffffff !important;padding:12px 16px;font-weight:700;font-size:12px;letter-spacing:0.5px;">Paid Date</th>
+            <th style="background:#312e81 !important;color:#ffffff !important;padding:12px 16px;font-weight:700;font-size:12px;letter-spacing:0.5px;">Receipt</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for b in purchased[:5] %}
+          <tr>
+            <td class="fw-600" style="color:#0f172a;">📍 {{ b['location'] }}</td>
+            <td style="color:#334155;">{{ b['city'] }}</td>
+            <td class="fw-600" style="color:#4338ca;font-size:15px;">₹ {{ "{:,.0f}".format(b['price']) }}</td>
+            <td><span class="hms-badge" style="background:#f5f3ff;color:#4338ca;border:1px solid #c7d2fe;">{{ b['payment_method'] }}</span></td>
+            <td class="text-muted">{{ b['paid_at'][:10] if b['paid_at'] else 'N/A' }}</td>
+            <td>
+              <a href="{{ url_for('receipt', booking_id=b['id']) }}" class="hms-btn-sm" style="background:#f5f3ff;color:#4338ca;border:1px solid #c7d2fe;" id="receipt-{{ b['id'] }}">View Receipt</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if purchased|length > 5 %}
+    <div style="text-align:center;margin-top:14px;">
+      <a href="{{ url_for('user_history') }}" class="btn btn-secondary" style="font-size:12px;padding:6px 16px;border-color:#c7d2fe;color:#4338ca;">View Full History →</a>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
 </div>
+{% else %}
+<!-- Welcome Empty State when new user has no cart or purchases yet -->
+<div style="background:#ffffff;border:1.5px solid #c7d2fe;border-radius:20px;padding:36px;text-align:center;box-shadow:0 4px 16px rgba(99,102,241,0.05);margin-bottom:36px;">
+  <div style="width:64px;height:64px;background:#f5f3ff;border:1.5px solid #c7d2fe;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:30px;margin:0 auto 16px;color:#4f46e5;">
+    🏡
+  </div>
+  <h3 style="font-size:18px;font-weight:800;color:#0f172a;margin:0 0 8px;">Start Exploring Real Estate with ValuNest</h3>
+  <p style="color:#64748b;font-size:14px;max-width:500px;margin:0 auto 20px;">Calculate AI-powered fair market prices and explore properties across 6 major Indian cities.</p>
+  <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;">
+    <a href="{% if session.get('city') %}{{ url_for('predict') }}{% else %}{{ url_for('select_city', flow='predict') }}{% endif %}" class="btn btn-primary" style="background:linear-gradient(135deg, #7c3aed, #4f46e5);color:#ffffff;border:none;padding:11px 24px;border-radius:10px;text-decoration:none;font-weight:700;box-shadow:0 4px 14px rgba(79,70,229,0.3);">Try AI Valuation →</a>
+    <a href="{{ url_for('property_map') }}" class="btn btn-secondary" style="padding:11px 22px;border-radius:10px;text-decoration:none;font-weight:700;border-color:#c7d2fe;color:#4338ca;">View Satellite Map</a>
+  </div>
+</div>
+{% endif %}
 
 {% endblock %}

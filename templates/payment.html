@@ -13,7 +13,7 @@
     </div>
     <div class="summary-row">
       <span class="summary-label">Total amount</span>
-      <span style="color:#2e7d32;font-weight:bold;font-size:18px;">₹ {{ "{:,.0f}".format(price) }}</span>
+      <span style="color:#4f46e5;font-weight:bold;font-size:18px;">₹ {{ "{:,.0f}".format(price) }}</span>
     </div>
   </div>
 
@@ -21,7 +21,7 @@
     <input type="hidden" name="pay_method" id="methodInput">
     <input type="hidden" name="txn_id" id="txnInput">
 
-    <p style="font-size:14px;font-weight:bold;color:#388e3c;margin-bottom:12px;">SELECT PAYMENT METHOD</p>
+    <p style="font-size:14px;font-weight:bold;color:#6366f1;margin-bottom:12px;">SELECT PAYMENT METHOD</p>
     <div class="payment-methods" style="margin-bottom:20px;">
       <div class="payment-option" onclick="selectPayment('UPI', this)" id="opt_upi">
         <span class="payment-icon">📱</span>
@@ -206,13 +206,13 @@
 
     <div id="processingDiv" style="display:none;text-align:center;padding:30px;">
       <div style="font-size:40px;margin-bottom:12px;">⏳</div>
-      <p style="font-size:16px;color:#2e7d32;font-weight:bold;">Processing payment...</p>
+      <p style="font-size:16px;color:#4f46e5;font-weight:bold;">Processing payment...</p>
       <p style="font-size:13px;color:#888;margin-top:6px;">Please do not close this page</p>
     </div>
 
     <div style="display:flex;gap:12px;margin-top:8px;" id="btnRow">
       <a href="{{ back_url }}" class="btn btn-secondary" style="flex:1;text-align:center;">← Back</a>
-      <button type="submit" class="btn btn-green" style="flex:2;" id="payBtn" disabled>
+      <button type="submit" class="btn btn-primary" style="flex:2;" id="payBtn" disabled>
         🔒 Pay ₹ {{ "{:,.0f}".format(price) }} →
       </button>
     </div>

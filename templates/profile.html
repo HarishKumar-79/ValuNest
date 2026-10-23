@@ -10,10 +10,10 @@
   <div style="display:grid;grid-template-columns:220px 1fr;gap:22px;align-items:start;">
 
     <!-- LEFT: Avatar card -->
-    <div style="background:white;border:2px solid #c8e6c9;border-radius:20px;padding:24px;text-align:center;position:sticky;top:80px;">
+    <div style="background:white;border:2px solid #c7d2fe;border-radius:20px;padding:24px;text-align:center;position:sticky;top:80px;">
       <div style="position:relative;display:inline-block;margin-bottom:14px;">
         <div id="avatarWrap" style="width:110px;height:110px;border-radius:50%;overflow:hidden;
-              border:3px solid #a5d6a7;background:linear-gradient(135deg,#2e7d32,#66bb6a);
+              border:3px solid #c7d2fe;background:linear-gradient(135deg,#4f46e5,#a5b4fc);
               display:flex;align-items:center;justify-content:center;margin:0 auto;">
           {% if user['photo'] %}
           <img src="{{ url_for('static', filename='uploads/' + user['photo']) }}"
@@ -26,7 +26,7 @@
         </div>
         <!-- Upload + Camera buttons -->
         <div style="position:absolute;bottom:-4px;right:-4px;display:flex;gap:4px;">
-          <label style="width:28px;height:28px;border-radius:50%;background:#2e7d32;color:white;
+          <label style="width:28px;height:28px;border-radius:50%;background:#4f46e5;color:white;
                          display:flex;align-items:center;justify-content:center;cursor:pointer;
                          border:2px solid white;font-size:12px;" title="Upload photo from gallery">
             🖼
@@ -40,17 +40,17 @@
           </button>
         </div>
       </div>
-      <div style="font-size:16px;font-weight:bold;color:#1b5e20;">{{ user['name'] }}</div>
+      <div style="font-size:16px;font-weight:bold;color:#4338ca;">{{ user['name'] }}</div>
       <div style="font-size:12px;color:#888;margin-top:2px;">{{ user['email'] }}</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:12px;">
         <a href="mailto:{{ admin_email }}?subject=HomeFinder%20Support" class="btn btn-secondary" style="padding:7px 12px;font-size:12px;">Email Admin</a>
         <a href="{{ url_for('messages') }}" class="btn" style="padding:7px 12px;font-size:12px;background:#1565c0;">Messages</a>
-        <span class="btn btn-green" style="padding:7px 12px;font-size:12px;cursor:default;">Google Auth</span>
+        <span class="btn btn-primary" style="padding:7px 12px;font-size:12px;cursor:default;">Google Auth</span>
       </div>
-      <div style="margin-top:14px;padding-top:14px;border-top:1px solid #e8f5e9;">
+      <div style="margin-top:14px;padding-top:14px;border-top:1px solid #f5f3ff;">
         <div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;">
           <span style="color:#888;">Status</span>
-          <span style="background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:20px;font-weight:bold;font-size:11px;">{{ user['status'] }}</span>
+          <span style="background:#f5f3ff;color:#4f46e5;padding:2px 8px;border-radius:20px;font-weight:bold;font-size:11px;">{{ user['status'] }}</span>
         </div>
         <div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;">
           <span style="color:#888;">Since</span>
@@ -68,11 +68,11 @@
     <div style="display:flex;flex-direction:column;gap:18px;">
 
       <!-- Personal Info -->
-      <div style="background:white;border:2px solid #c8e6c9;border-radius:18px;padding:22px;">
+      <div style="background:white;border:2px solid #c7d2fe;border-radius:18px;padding:22px;">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
-          <div style="width:34px;height:34px;border-radius:10px;background:#e8f5e9;display:flex;align-items:center;justify-content:center;font-size:16px;">👤</div>
+          <div style="width:34px;height:34px;border-radius:10px;background:#f5f3ff;display:flex;align-items:center;justify-content:center;font-size:16px;">👤</div>
           <div>
-            <div style="font-size:15px;font-weight:bold;color:#1b5e20;">Personal information</div>
+            <div style="font-size:15px;font-weight:bold;color:#4338ca;">Personal information</div>
             <div style="font-size:11px;color:#aaa;">Name, email and contact details</div>
           </div>
         </div>
@@ -86,11 +86,11 @@
       </div>
 
       <!-- Password -->
-      <div style="background:white;border:2px solid #c8e6c9;border-radius:18px;padding:22px;">
+      <div style="background:white;border:2px solid #c7d2fe;border-radius:18px;padding:22px;">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;">
-          <div style="width:34px;height:34px;border-radius:10px;background:#e8f5e9;display:flex;align-items:center;justify-content:center;font-size:16px;">🔑</div>
+          <div style="width:34px;height:34px;border-radius:10px;background:#f5f3ff;display:flex;align-items:center;justify-content:center;font-size:16px;">🔑</div>
           <div>
-            <div style="font-size:15px;font-weight:bold;color:#1b5e20;">Change password</div>
+            <div style="font-size:15px;font-weight:bold;color:#4338ca;">Change password</div>
             <div style="font-size:11px;color:#aaa;">Leave blank to keep current password</div>
           </div>
         </div>
@@ -119,7 +119,7 @@
             </div>
           </div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-top:12px;background:#f9fdf9;border-radius:10px;padding:10px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-top:12px;background:#faf5ff;border-radius:10px;padding:10px;">
           <div id="r1" style="font-size:11px;color:#aaa;">✗ At least 8 characters</div>
           <div id="r2" style="font-size:11px;color:#aaa;">✗ One uppercase (A-Z)</div>
           <div id="r3" style="font-size:11px;color:#aaa;">✗ One lowercase (a-z)</div>
@@ -153,7 +153,7 @@
 
       <div style="display:flex;gap:12px;">
         <a href="{{ url_for('index') }}" class="btn btn-secondary" style="flex:1;text-align:center;">← Back</a>
-        <button type="submit" class="btn btn-green" style="flex:2;">Save all changes →</button>
+        <button type="submit" class="btn btn-primary" style="flex:2;">Save all changes →</button>
       </div>
     </div>
   </div>
@@ -164,13 +164,13 @@
 <div id="cameraModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);
      z-index:9999;align-items:center;justify-content:center;">
   <div style="background:white;border-radius:20px;padding:22px;width:380px;max-width:92vw;text-align:center;">
-    <h3 style="color:#1b5e20;margin-bottom:14px;font-size:17px;">📷 Take a Photo</h3>
+    <h3 style="color:#4338ca;margin-bottom:14px;font-size:17px;">📷 Take a Photo</h3>
     <video id="camVideo" autoplay playsinline
       style="width:100%;border-radius:12px;background:#000;margin-bottom:12px;max-height:260px;"></video>
     <canvas id="camCanvas" style="display:none;"></canvas>
     <div style="display:flex;gap:10px;">
       <button onclick="capturePhoto()"
-        style="flex:2;padding:11px;background:#2e7d32;color:white;border:none;border-radius:10px;cursor:pointer;font-size:14px;font-weight:bold;">
+        style="flex:2;padding:11px;background:#4f46e5;color:white;border:none;border-radius:10px;cursor:pointer;font-size:14px;font-weight:bold;">
         📸 Capture
       </button>
       <button onclick="closeCamera()"
@@ -248,13 +248,13 @@ function cs(pw) {
   let passed = 0;
   rules.forEach(r => {
     const el = document.getElementById(r.id);
-    if (r.ok) { el.style.color = '#2e7d32'; el.textContent = '✓' + el.textContent.slice(1); passed++; }
+    if (r.ok) { el.style.color = '#4f46e5'; el.textContent = '✓' + el.textContent.slice(1); passed++; }
     else { el.style.color = '#aaa'; el.textContent = '✗' + el.textContent.slice(1); }
   });
   const sb = document.getElementById('sb');
   const st = document.getElementById('st');
   sb.style.width = (passed/5*100) + '%';
-  const clrs = ['','#e74c3c','#f39c12','#3498db','#2e7d32','#2e7d32'];
+  const clrs = ['','#e74c3c','#f39c12','#3498db','#4f46e5','#4f46e5'];
   const lbls = ['','Weak','Fair','Good','Strong','Very strong ✓'];
   sb.style.background = clrs[passed] || '#e0e0e0';
   st.textContent = lbls[passed] || '';

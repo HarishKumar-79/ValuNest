@@ -8,7 +8,7 @@
 
   <form method="post">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
-      <div style="background:white;border:2px solid #c8e6c9;border-radius:18px;padding:20px;">
+      <div style="background:white;border:2px solid #c7d2fe;border-radius:18px;padding:20px;">
         <h2 style="margin-bottom:12px;">Profile</h2>
         <div class="form-group">
           <label>Name</label>
@@ -24,7 +24,7 @@
         </div>
       </div>
 
-      <div style="background:white;border:2px solid #c8e6c9;border-radius:18px;padding:20px;">
+      <div style="background:white;border:2px solid #c7d2fe;border-radius:18px;padding:20px;">
         <h2 style="margin-bottom:12px;">Security</h2>
         <div class="form-group">
           <label>Google authentication</label>
@@ -51,7 +51,7 @@
         </div>
       </div>
 
-      <div style="background:white;border:2px solid #c8e6c9;border-radius:18px;padding:20px;">
+      <div style="background:white;border:2px solid #c7d2fe;border-radius:18px;padding:20px;">
         <h2 style="margin-bottom:12px;">Privacy</h2>
         <div class="form-group">
           <label>Profile visibility</label>
@@ -69,7 +69,7 @@
         </div>
       </div>
 
-      <div style="background:white;border:2px solid #c8e6c9;border-radius:18px;padding:20px;">
+      <div style="background:white;border:2px solid #c7d2fe;border-radius:18px;padding:20px;">
         <h2 style="margin-bottom:12px;">Preferences</h2>
         <div class="form-group">
           <label>Notifications</label>
@@ -92,7 +92,7 @@
 
     <div style="display:flex;gap:12px;margin-top:20px;flex-wrap:wrap;">
       <a href="{{ url_for('admin_dashboard') if owner.role == 'admin' else url_for('profile') }}" class="btn btn-secondary">Back</a>
-      <button type="submit" class="btn btn-green">Save settings</button>
+      <button type="submit" class="btn btn-primary">Save settings</button>
       <a href="{{ url_for('messages') }}" class="btn btn-secondary">Messages</a>
       <a href="mailto:{{ admin_email }}?subject=HomeFinder%20Support" class="btn btn-secondary">Email Admin</a>
     </div>

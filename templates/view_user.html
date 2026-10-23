@@ -1,182 +1,366 @@
 {% extends "base.html" %}
-{% block title %}View User{% endblock %}
+{% block title %}User Profile — {{ user['name'] }} — ValuNest Admin{% endblock %}
 {% block content %}
-<div class="container wide" style="margin-top:40px;">
-  <div class="breadcrumb"><a href="{{ url_for('admin_dashboard') }}" style="color:#43a047;">Admin</a> › <span>View User</span></div>
+<div class="container wide" style="margin-top:28px; margin-bottom: 60px;">
 
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
-    <div>
-      <h1>{{ user['name'] }}</h1>
-      <p style="color:#888;font-size:14px;margin-top:4px;">{{ user['email'] }}</p>
-    </div>
-    <div style="display:flex;gap:10px;">
-      <a href="{{ url_for('edit_user', user_id=user['id']) }}" class="btn" style="padding:10px 22px;">✏ Edit</a>
-      <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary" style="padding:10px 22px;">← Back</a>
-    </div>
+  <!-- Breadcrumb Navigation -->
+  <div class="breadcrumb" style="margin-bottom: 20px; font-size: 13px;">
+    <a href="{{ url_for('admin_dashboard') }}" style="color:#4f46e5; text-decoration:none; font-weight:600;">← Admin Dashboard</a>
+    <span style="color:#94a3b8; margin: 0 6px;">›</span>
+    <span style="color:#64748b;">Client Dossiers</span>
+    <span style="color:#94a3b8; margin: 0 6px;">›</span>
+    <span style="font-weight:700; color:#1e1b4b;">{{ user['name'] }}</span>
   </div>
 
-  <!-- Stats row -->
-  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:24px;">
-    <div style="background:#e8f5e9;border:2px solid #c8e6c9;border-radius:14px;padding:16px;text-align:center;">
-      <div style="font-size:24px;font-weight:bold;color:#2e7d32;">{{ login_count }}</div>
-      <div style="font-size:12px;color:#888;margin-top:3px;">Total Logins</div>
-    </div>
-    <div style="background:#fff3e0;border:2px solid #ffcc80;border-radius:14px;padding:16px;text-align:center;">
-      <div style="font-size:24px;font-weight:bold;color:#e65100;">{{ logout_count }}</div>
-      <div style="font-size:12px;color:#888;margin-top:3px;">Total Logouts</div>
-    </div>
-    <div style="background:#f3e5f5;border:2px solid #ce93d8;border-radius:14px;padding:16px;text-align:center;">
-      <div style="font-size:24px;font-weight:bold;color:#6a1b9a;">{{ pw_history|length }}</div>
-      <div style="font-size:12px;color:#888;margin-top:3px;">Password Changes</div>
-    </div>
-    <div style="background:#e3f2fd;border:2px solid #90caf9;border-radius:14px;padding:16px;text-align:center;">
-      <div style="font-size:24px;font-weight:bold;color:#1565c0;">{{ bookings|length }}</div>
-      <div style="font-size:12px;color:#888;margin-top:3px;">Total Bookings</div>
-    </div>
-    <div style="background:#e8f5e9;border:2px solid #a5d6a7;border-radius:14px;padding:16px;text-align:center;">
-      <div style="font-size:16px;font-weight:bold;color:#2e7d32;">
-        ₹{{ "{:,.0f}".format(bookings|selectattr('status','equalto','confirmed')|sum(attribute='price')) }}
+  <!-- User Profile Header Card -->
+  <div style="background:#ffffff;border:1.5px solid #c7d2fe;border-radius:22px;padding:28px 32px;margin-bottom:28px;box-shadow:0 8px 28px rgba(99,102,241,0.08);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:20px;">
+    <div style="display:flex;align-items:center;gap:18px;">
+      <div style="width:68px;height:68px;border-radius:50%;background:linear-gradient(135deg, #4f46e5, #7c3aed);color:#ffffff;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;flex-shrink:0;box-shadow:0 6px 20px rgba(79,70,229,0.3);border:3px solid #ede9fe;">
+        {% if user.get('photo') %}
+          <img src="{{ url_for('static', filename='uploads/' + user['photo']) }}" alt="{{ user['name'] }}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">
+        {% else %}
+          {{ user['name'][0].upper() if user['name'] else '?' }}
+        {% endif %}
       </div>
-      <div style="font-size:12px;color:#888;margin-top:3px;">Total Spent</div>
+      <div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <h1 class="heading-light-to-bright" style="margin:0;font-size:26px;font-weight:900;letter-spacing:-0.5px;">{{ user['name'] }}</h1>
+          <span style="padding:4px 14px;border-radius:20px;font-size:12px;font-weight:700;
+            background:{% if user['status']=='active' %}#f5f3ff{% else %}#fff1f2{% endif %};
+            color:{% if user['status']=='active' %}#4338ca{% else %}#e11d48{% endif %};
+            border:1px solid {% if user['status']=='active' %}#c7d2fe{% else %}#fecdd3{% endif %};">
+            {{ user['status'].upper() }} ACCOUNT
+          </span>
+        </div>
+        <div style="display:flex;gap:16px;align-items:center;margin-top:6px;flex-wrap:wrap;font-size:13.5px;color:#64748b;">
+          <span style="color:#4f46e5;font-weight:600;">✉ {{ user['email'] }}</span>
+          <span>📞 {{ user['phone'] or 'No phone number' }}</span>
+          <span>🆔 User ID #{{ user['id'] }}</span>
+          <span>📅 Registered: {{ user['created_at'][:10] if user['created_at'] else 'N/A' }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Administrative Quick Actions -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+      <a href="mailto:{{ user['email'] }}?subject=ValuNest%20Support" class="admin-btn admin-btn-outline">
+        <span>✉️</span> Email User
+      </a>
+      <a href="{{ url_for('edit_user', user_id=user['id']) }}" class="admin-btn admin-btn-secondary">
+        <span>✏️</span> Edit Details
+      </a>
+      {% if user['status'] == 'active' %}
+      <form method="post" action="{{ url_for('block_user', user_id=user['id']) }}"
+            onsubmit="return confirm('Block {{ user['name'] }}? They will not be able to log in or book.')" style="margin:0;">
+        <button type="submit" class="admin-btn admin-btn-warning">
+          <span>🚫</span> Block
+        </button>
+      </form>
+      {% else %}
+      <form method="post" action="{{ url_for('unblock_user', user_id=user['id']) }}"
+            onsubmit="return confirm('Unblock {{ user['name'] }}?')" style="margin:0;">
+        <button type="submit" class="admin-btn admin-btn-success">
+          <span>✓</span> Unblock
+        </button>
+      </form>
+      {% endif %}
+      <form method="post" action="{{ url_for('remove_user', user_id=user['id']) }}"
+            onsubmit="return confirm('Permanently delete {{ user['name'] }} and ALL their cart items, purchases, and logs?')" style="margin:0;">
+        <button type="submit" class="admin-btn admin-btn-danger">
+          <span>✕</span> Delete User
+        </button>
+      </form>
+      <a href="{{ url_for('admin_dashboard') }}" class="admin-btn admin-btn-outline" style="border-color:#cbd5e1;color:#64748b;">
+        <span>←</span> Back to Directory
+      </a>
     </div>
   </div>
 
-  <!-- User Info -->
-  <div class="summary-box" style="margin-bottom:24px;">
-    <div class="summary-row"><span class="summary-label">User ID</span><span>#{{ user['id'] }}</span></div>
-    <div class="summary-row"><span class="summary-label">Name</span><span>{{ user['name'] }}</span></div>
-    <div class="summary-row"><span class="summary-label">Email</span><span>{{ user['email'] }}</span></div>
-    <div class="summary-row"><span class="summary-label">Phone</span><span>{{ user['phone'] or 'Not set' }}</span></div>
-    <div class="summary-row">
-      <span class="summary-label">Status</span>
-      <span style="padding:3px 12px;border-radius:20px;font-size:13px;font-weight:bold;
-        background:{% if user['status']=='active' %}#e8f5e9{% else %}#ffebee{% endif %};
-        color:{% if user['status']=='active' %}#2e7d32{% else %}#c62828{% endif %};">
-        {{ user['status'] }}
+  <!-- 5 Individual Metric Cards for THIS Specific User -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:14px;margin-bottom:32px;">
+    
+    <div style="background:#ffffff;border:1.5px solid #c7d2fe;border-radius:16px;padding:20px;text-align:center;box-shadow:0 4px 16px rgba(99,102,241,0.05);position:relative;overflow:hidden;">
+      <div style="position:absolute;top:0;left:0;right:0;height:4px;background:#6366f1;"></div>
+      <div style="font-size:28px;font-weight:800;color:#312e81;">{{ cart_items|length }}</div>
+      <div style="font-size:12px;color:#64748b;margin-top:4px;font-weight:700;">Items In Cart</div>
+    </div>
+
+    <div style="background:#ffffff;border:1.5px solid #c7d2fe;border-radius:16px;padding:20px;text-align:center;box-shadow:0 4px 16px rgba(99,102,241,0.05);position:relative;overflow:hidden;">
+      <div style="position:absolute;top:0;left:0;right:0;height:4px;background:#4f46e5;"></div>
+      <div style="font-size:28px;font-weight:800;color:#312e81;">{{ confirmed|length }}</div>
+      <div style="font-size:12px;color:#64748b;margin-top:4px;font-weight:700;">Purchased Homes</div>
+    </div>
+
+    <div style="background:#ffffff;border:1.5px solid #c7d2fe;border-radius:16px;padding:20px;text-align:center;box-shadow:0 4px 16px rgba(99,102,241,0.05);position:relative;overflow:hidden;">
+      <div style="position:absolute;top:0;left:0;right:0;height:4px;background:#7c3aed;"></div>
+      <div style="font-size:22px;font-weight:800;color:#4338ca;margin-top:5px;">
+        ₹ {{ "{:,.0f}".format(total_revenue) }}
+      </div>
+      <div style="font-size:12px;color:#64748b;margin-top:4px;font-weight:700;">Total Amount Paid</div>
+    </div>
+
+    <div style="background:#ffffff;border:1.5px solid #c7d2fe;border-radius:16px;padding:20px;text-align:center;box-shadow:0 4px 16px rgba(99,102,241,0.05);position:relative;overflow:hidden;">
+      <div style="position:absolute;top:0;left:0;right:0;height:4px;background:#818cf8;"></div>
+      <div style="font-size:28px;font-weight:800;color:#312e81;">{{ login_count }}</div>
+      <div style="font-size:12px;color:#64748b;margin-top:4px;font-weight:700;">Platform Logins</div>
+    </div>
+
+    <div style="background:#ffffff;border:1.5px solid #c7d2fe;border-radius:16px;padding:20px;text-align:center;box-shadow:0 4px 16px rgba(99,102,241,0.05);position:relative;overflow:hidden;">
+      <div style="position:absolute;top:0;left:0;right:0;height:4px;background:#4338ca;"></div>
+      <div style="font-size:28px;font-weight:800;color:#312e81;">{{ pw_history|length }}</div>
+      <div style="font-size:12px;color:#64748b;margin-top:4px;font-weight:700;">Password Changes</div>
+    </div>
+
+  </div>
+
+  <!-- Account & Security Details Box -->
+  <div style="background:#ffffff;border:1.5px solid #c7d2fe;border-radius:20px;padding:26px;margin-bottom:32px;box-shadow:0 4px 16px rgba(99,102,241,0.04);">
+    <h3 style="font-size:17px;font-weight:800;color:#0f172a;margin:0 0 16px;">📋 Client Profile & Credentials Dossier</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:16px;font-size:13.5px;">
+      
+      <div style="padding:14px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;">
+        <span style="display:block;font-size:11.5px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Full Legal Name</span>
+        <span style="font-weight:800;color:#0f172a;font-size:15px;margin-top:3px;display:block;">{{ user['name'] }}</span>
+      </div>
+
+      <div style="padding:14px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;">
+        <span style="display:block;font-size:11.5px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Registered Email Address</span>
+        <span style="font-weight:700;color:#4f46e5;font-size:14px;margin-top:3px;display:block;">{{ user['email'] }}</span>
+      </div>
+
+      <div style="padding:14px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;">
+        <span style="display:block;font-size:11.5px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Mobile Phone</span>
+        <span style="font-weight:700;color:#0f172a;font-size:14px;margin-top:3px;display:block;">{{ user['phone'] or 'Not provided' }}</span>
+      </div>
+
+      <div style="padding:14px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;">
+        <span style="display:block;font-size:11.5px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Current Password (Admin Access)</span>
+        <span style="font-family:monospace;background:#f5f3ff;border:1px solid #c7d2fe;padding:2px 8px;border-radius:6px;color:#4338ca;font-weight:800;display:inline-block;margin-top:4px;">
+          {{ user['plain_password'] }}
+        </span>
+      </div>
+
+      <div style="padding:14px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;">
+        <span style="display:block;font-size:11.5px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Account Creation Date</span>
+        <span style="font-weight:700;color:#0f172a;font-size:14px;margin-top:3px;display:block;">{{ user['created_at'] if user['created_at'] else 'N/A' }}</span>
+      </div>
+
+      <div style="padding:14px;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;">
+        <span style="display:block;font-size:11.5px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Account Status</span>
+        <span style="display:inline-block;margin-top:4px;padding:3px 12px;border-radius:16px;font-size:11.5px;font-weight:700;background:{% if user['status']=='active' %}#f5f3ff{% else %}#fff1f2{% endif %};color:{% if user['status']=='active' %}#4338ca{% else %}#e11d48{% endif %};border:1px solid {% if user['status']=='active' %}#c7d2fe{% else %}#fecdd3{% endif %};">
+          {{ user['status'].upper() }}
+        </span>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- SECTION 1: USER'S PENDING CART ITEMS (ONLY THIS USER) -->
+  <div style="background:#ffffff;border:1.5px solid #c7d2fe;border-radius:20px;padding:26px;margin-bottom:32px;box-shadow:0 6px 20px rgba(99,102,241,0.05);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+      <div>
+        <h3 style="font-size:18px;font-weight:800;color:#0f172a;margin:0 0 3px;">🛒 {{ user['name'] }}'s Pending Cart Items</h3>
+        <p style="margin:0;font-size:13px;color:#64748b;">Properties currently reserved in this user's shopping cart awaiting payment.</p>
+      </div>
+      <span style="background:#f5f3ff;color:#4338ca;border:1px solid #c7d2fe;font-size:12px;font-weight:700;padding:4px 14px;border-radius:20px;">
+        {{ cart_items|length }} In Cart
       </span>
     </div>
-    <div class="summary-row">
-      <span class="summary-label">Current Password</span>
-      <span style="font-family:monospace;background:#f1f8e9;padding:4px 10px;border-radius:8px;
-                   color:#1b5e20;font-weight:bold;">{{ user['plain_password'] }}</span>
+
+    {% if cart_items %}
+    <div style="overflow-x:auto;border-radius:12px;border:1px solid #c7d2fe;">
+      <table class="hms-table" style="width:100%;border-collapse:collapse;font-size:13.5px;min-width:750px;">
+        <thead>
+          <tr style="background:#f5f3ff;border-bottom:2px solid #c7d2fe;">
+            <th style="padding:12px 16px;text-align:left;font-weight:800;font-size:12px;letter-spacing:0.5px;color:#1e1b4b;background:#f5f3ff;"># Booking ID</th>
+            <th style="padding:12px 16px;text-align:left;font-weight:800;font-size:12px;letter-spacing:0.5px;color:#1e1b4b;background:#f5f3ff;">City</th>
+            <th style="padding:12px 16px;text-align:left;font-weight:800;font-size:12px;letter-spacing:0.5px;color:#1e1b4b;background:#f5f3ff;">Locality</th>
+            <th style="padding:12px 16px;text-align:left;font-weight:800;font-size:12px;letter-spacing:0.5px;color:#1e1b4b;background:#f5f3ff;">Quoted Price</th>
+            <th style="padding:12px 16px;text-align:left;font-weight:800;font-size:12px;letter-spacing:0.5px;color:#1e1b4b;background:#f5f3ff;">Type</th>
+            <th style="padding:12px 16px;text-align:left;font-weight:800;font-size:12px;letter-spacing:0.5px;color:#1e1b4b;background:#f5f3ff;">Added Date</th>
+            <th style="padding:12px 16px;text-align:left;font-weight:800;font-size:12px;letter-spacing:0.5px;color:#1e1b4b;background:#f5f3ff;">Admin Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for b in cart_items %}
+          <tr style="border-bottom:1px solid #e2e8f0;background:{% if loop.index % 2 == 0 %}#f8fafc{% else %}#ffffff{% endif %};">
+            <td style="padding:12px 16px;color:#64748b;font-weight:700;">#{{ b['id'] }}</td>
+            <td style="padding:12px 16px;color:#334155;font-weight:600;">📍 {{ b['city'] }}</td>
+            <td style="padding:12px 16px;color:#0f172a;font-weight:700;">{{ b['location'] }}</td>
+            <td style="padding:12px 16px;color:#4338ca;font-weight:800;font-size:14.5px;">₹ {{ "{:,.0f}".format(b['price']) }}</td>
+            <td style="padding:12px 16px;">
+              <span style="padding:3px 10px;border-radius:16px;font-size:11.5px;font-weight:700;background:#f5f3ff;color:#4338ca;border:1px solid #c7d2fe;">
+                {{ b['booking_type'] }}
+              </span>
+            </td>
+            <td style="padding:12px 16px;color:#64748b;font-size:12.5px;">{{ b['booked_at'][:10] }}</td>
+            <td style="padding:12px 16px;">
+              <form method="post" action="{{ url_for('remove_booking', booking_id=b['id']) }}"
+                    onsubmit="return confirm('Remove this item from {{ user['name'] }}\'s cart?')" style="margin:0;">
+                <button type="submit" class="admin-btn admin-btn-danger">
+                  <span>✕</span> Remove from Cart
+                </button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
     </div>
-    <div class="summary-row"><span class="summary-label">Registered</span><span>{{ user['created_at'][:10] if user['created_at'] else 'N/A' }}</span></div>
+    {% else %}
+    <div style="text-align:center;padding:32px;color:#64748b;background:#f8fafc;border-radius:12px;border:1px dashed #c7d2fe;">
+      <div style="font-size:32px;margin-bottom:8px;">🛒</div>
+      <div style="font-weight:700;color:#0f172a;font-size:14.5px;">No active pending items in cart</div>
+      <div style="font-size:13px;color:#64748b;margin-top:2px;">{{ user['name'] }} does not have any items reserved in their cart right now.</div>
+    </div>
+    {% endif %}
   </div>
 
-  <!-- Login/Logout Activity -->
-  <h2 style="margin-bottom:14px;">🔐 Login & Logout Activity</h2>
-  {% if login_logs %}
-  <div style="overflow-x:auto;margin-bottom:28px;">
-    <table style="width:100%;border-collapse:collapse;font-size:14px;">
-      <thead>
-        <tr style="background:#e8f5e9;color:#2e7d32;">
-          <th style="padding:10px 14px;text-align:left;">#</th>
-          <th style="padding:10px 14px;text-align:left;">Action</th>
-          <th style="padding:10px 14px;text-align:left;">Date & Time</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for l in login_logs %}
-        <tr style="border-bottom:1px solid #f0f0f0;">
-          <td style="padding:10px 14px;color:#aaa;">{{ loop.index }}</td>
-          <td style="padding:10px 14px;">
-            <span style="padding:3px 12px;border-radius:20px;font-size:12px;font-weight:bold;
-              background:{% if l['action']=='login' %}#e8f5e9{% else %}#fff3e0{% endif %};
-              color:{% if l['action']=='login' %}#2e7d32{% else %}#e65100{% endif %};">
-              {% if l['action']=='login' %}🟢 Login{% else %}🔴 Logout{% endif %}
-            </span>
-          </td>
-          <td style="padding:10px 14px;color:#888;font-size:13px;">{{ l['logged_at'] }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% else %}
-  <div style="text-align:center;padding:20px;color:#aaa;margin-bottom:24px;">No login activity yet.</div>
-  {% endif %}
+  <!-- SECTION 2: USER'S CONFIRMED PROPERTY PURCHASES (ONLY THIS USER) -->
+  <div style="background:#ffffff;border:1.5px solid #c7d2fe;border-radius:20px;padding:26px;margin-bottom:32px;box-shadow:0 6px 20px rgba(99,102,241,0.05);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+      <div>
+        <h3 style="font-size:18px;font-weight:800;color:#0f172a;margin:0 0 3px;">🏆 {{ user['name'] }}'s Confirmed Purchases & Orders</h3>
+        <p style="margin:0;font-size:13px;color:#64748b;">Completed transactions, verified payments & downloadable booking receipts.</p>
+      </div>
+      <span style="background:#f5f3ff;color:#4338ca;border:1px solid #c7d2fe;font-size:12px;font-weight:700;padding:4px 14px;border-radius:20px;">
+        {{ confirmed|length }} Purchased
+      </span>
+    </div>
 
-  <!-- Password History -->
-  <h2 style="margin-bottom:14px;">🔑 Password History</h2>
+    {% if confirmed %}
+    <div style="overflow-x:auto;border-radius:12px;border:1px solid #c7d2fe;">
+      <table class="hms-table" style="width:100%;border-collapse:collapse;font-size:13.5px;min-width:850px;">
+        <thead>
+          <tr style="background:#f5f3ff;border-bottom:2px solid #c7d2fe;">
+            <th style="padding:12px 16px;text-align:left;font-weight:800;font-size:12px;letter-spacing:0.5px;color:#1e1b4b;background:#f5f3ff;">#</th>
+            <th style="padding:12px 16px;text-align:left;font-weight:800;font-size:12px;letter-spacing:0.5px;color:#1e1b4b;background:#f5f3ff;">City</th>
+            <th style="padding:12px 16px;text-align:left;font-weight:800;font-size:12px;letter-spacing:0.5px;color:#1e1b4b;background:#f5f3ff;">Locality</th>
+            <th style="padding:12px 16px;text-align:left;font-weight:800;font-size:12px;letter-spacing:0.5px;color:#1e1b4b;background:#f5f3ff;">Amount Paid</th>
+            <th style="padding:12px 16px;text-align:left;font-weight:800;font-size:12px;letter-spacing:0.5px;color:#1e1b4b;background:#f5f3ff;">Payment Method</th>
+            <th style="padding:12px 16px;text-align:left;font-weight:800;font-size:12px;letter-spacing:0.5px;color:#1e1b4b;background:#f5f3ff;">Transaction ID</th>
+            <th style="padding:12px 16px;text-align:left;font-weight:800;font-size:12px;letter-spacing:0.5px;color:#1e1b4b;background:#f5f3ff;">Paid Date</th>
+            <th style="padding:12px 16px;text-align:left;font-weight:800;font-size:12px;letter-spacing:0.5px;color:#1e1b4b;background:#f5f3ff;">Receipt</th>
+            <th style="padding:12px 16px;text-align:left;font-weight:800;font-size:12px;letter-spacing:0.5px;color:#1e1b4b;background:#f5f3ff;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for b in confirmed %}
+          <tr style="border-bottom:1px solid #e2e8f0;background:{% if loop.index % 2 == 0 %}#f8fafc{% else %}#ffffff{% endif %};">
+            <td style="padding:12px 16px;color:#64748b;font-weight:700;">#{{ b['id'] }}</td>
+            <td style="padding:12px 16px;color:#334155;font-weight:600;">📍 {{ b['city'] }}</td>
+            <td style="padding:12px 16px;color:#0f172a;font-weight:700;">{{ b['location'] }}</td>
+            <td style="padding:12px 16px;color:#4338ca;font-weight:800;font-size:14.5px;">₹ {{ "{:,.0f}".format(b['price']) }}</td>
+            <td style="padding:12px 16px;">
+              <span style="padding:3px 10px;border-radius:16px;font-size:11.5px;font-weight:700;background:#f5f3ff;color:#4338ca;border:1px solid #c7d2fe;">
+                {{ b['payment_method'] }}
+              </span>
+            </td>
+            <td style="padding:12px 16px;font-family:monospace;font-size:12px;color:#312e81;">{{ b['txn_id'] or '-' }}</td>
+            <td style="padding:12px 16px;color:#64748b;font-size:12.5px;">{{ b['paid_at'][:10] if b['paid_at'] else '-' }}</td>
+            <td style="padding:12px 16px;">
+              <a href="{{ url_for('receipt', booking_id=b['id']) }}" class="admin-btn admin-btn-outline" target="_blank">
+                <span>🧾</span> Receipt
+              </a>
+            </td>
+            <td style="padding:12px 16px;">
+              <div style="display:flex;gap:6px;">
+                <a href="{{ url_for('edit_booking', id=b['id']) }}" class="admin-btn admin-btn-primary">
+                  <span>✏️</span> Edit
+                </a>
+                <form method="post" action="{{ url_for('remove_booking', booking_id=b['id']) }}"
+                      onsubmit="return confirm('Delete this booking record?')" style="margin:0;">
+                  <button type="submit" class="admin-btn admin-btn-danger">
+                    <span>✕</span>
+                  </button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:32px;color:#64748b;background:#f8fafc;border-radius:12px;border:1px dashed #c7d2fe;">
+      <div style="font-size:32px;margin-bottom:8px;">🏡</div>
+      <div style="font-weight:700;color:#0f172a;font-size:14.5px;">No confirmed purchases yet</div>
+      <div style="font-size:13px;color:#64748b;margin-top:2px;">{{ user['name'] }} has not completed any property bookings yet.</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- SECTION 3: USER'S SECURITY & SESSION ACTIVITY (ONLY THIS USER) -->
+  <div style="background:#ffffff;border:1.5px solid #c7d2fe;border-radius:20px;padding:26px;margin-bottom:32px;box-shadow:0 6px 20px rgba(99,102,241,0.05);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <div>
+        <h3 style="font-size:18px;font-weight:800;color:#0f172a;margin:0 0 3px;">🔐 {{ user['name'] }}'s Login & Session Activity</h3>
+        <p style="margin:0;font-size:13px;color:#64748b;">Historical authentication access log with precise timestamps for security audit.</p>
+      </div>
+      <span style="background:#f5f3ff;color:#4338ca;border:1px solid #c7d2fe;font-size:12px;font-weight:700;padding:4px 14px;border-radius:20px;">
+        {{ login_logs|length }} Events Logged
+      </span>
+    </div>
+
+    {% if login_logs %}
+    <div style="overflow-x:auto;border-radius:12px;border:1px solid #c7d2fe;">
+      <table class="hms-table" style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+          <tr style="background:#f5f3ff;border-bottom:2px solid #c7d2fe;">
+            <th style="padding:10px 16px;text-align:left;font-weight:800;font-size:12px;color:#1e1b4b;background:#f5f3ff;letter-spacing:0.5px;">#</th>
+            <th style="padding:10px 16px;text-align:left;font-weight:800;font-size:12px;color:#1e1b4b;background:#f5f3ff;letter-spacing:0.5px;">Activity / Event</th>
+            <th style="padding:10px 16px;text-align:left;font-weight:800;font-size:12px;color:#1e1b4b;background:#f5f3ff;letter-spacing:0.5px;">Timestamp</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for l in login_logs %}
+          <tr style="border-bottom:1px solid #e2e8f0;background:{% if loop.index % 2 == 0 %}#f8fafc{% else %}#ffffff{% endif %};">
+            <td style="padding:10px 16px;color:#94a3b8;font-weight:600;">{{ loop.index }}</td>
+            <td style="padding:10px 16px;">
+              <span style="padding:3px 12px;border-radius:20px;font-size:11.5px;font-weight:700;
+                background:{% if l['action']=='login' %}#f5f3ff{% else %}#f8fafc{% endif %};
+                color:{% if l['action']=='login' %}#4338ca{% else %}#64748b{% endif %};
+                border:1px solid {% if l['action']=='login' %}#c7d2fe{% else %}#e2e8f0{% endif %};">
+                {% if l['action']=='login' %}🔵 Logged In{% else %}⚪ Logged Out{% endif %}
+              </span>
+            </td>
+            <td style="padding:10px 16px;color:#64748b;font-size:12.5px;">{{ l['logged_at'] }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div style="text-align:center;padding:24px;color:#64748b;font-size:13.5px;">No session activity recorded for this user yet.</div>
+    {% endif %}
+  </div>
+
+  <!-- SECTION 4: PASSWORD CHANGE HISTORY -->
   {% if pw_history %}
-  <div style="overflow-x:auto;margin-bottom:28px;">
-    <table style="width:100%;border-collapse:collapse;font-size:14px;">
-      <thead>
-        <tr style="background:#e8f5e9;color:#2e7d32;">
-          <th style="padding:10px 14px;text-align:left;">#</th>
-          <th style="padding:10px 14px;text-align:left;">Password</th>
-          <th style="padding:10px 14px;text-align:left;">Changed On</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for p in pw_history %}
-        <tr style="border-bottom:1px solid #f0f0f0;">
-          <td style="padding:10px 14px;color:#aaa;">{{ loop.index }}</td>
-          <td style="padding:10px 14px;font-family:monospace;color:#1b5e20;font-weight:bold;
-                     background:#f9fdf9;">{{ p['plain_password'] }}</td>
-          <td style="padding:10px 14px;color:#888;font-size:13px;">{{ p['changed_at'] }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <div style="background:#ffffff;border:1.5px solid #c7d2fe;border-radius:20px;padding:26px;box-shadow:0 6px 20px rgba(99,102,241,0.05);">
+    <h3 style="font-size:17px;font-weight:800;color:#0f172a;margin:0 0 14px;">🔑 Password Change History</h3>
+    <div style="overflow-x:auto;border-radius:12px;border:1px solid #c7d2fe;">
+      <table class="hms-table" style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+          <tr style="background:#f5f3ff;border-bottom:2px solid #c7d2fe;">
+            <th style="padding:10px 16px;text-align:left;font-weight:800;font-size:12px;color:#1e1b4b;background:#f5f3ff;letter-spacing:0.5px;">#</th>
+            <th style="padding:10px 16px;text-align:left;font-weight:800;font-size:12px;color:#1e1b4b;background:#f5f3ff;letter-spacing:0.5px;">Previous Password Record</th>
+            <th style="padding:10px 16px;text-align:left;font-weight:800;font-size:12px;color:#1e1b4b;background:#f5f3ff;letter-spacing:0.5px;">Changed At</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in pw_history %}
+          <tr style="border-bottom:1px solid #e2e8f0;">
+            <td style="padding:10px 16px;color:#94a3b8;font-weight:600;">{{ loop.index }}</td>
+            <td style="padding:10px 16px;font-family:monospace;font-weight:700;color:#4338ca;">{{ p['password'] }}</td>
+            <td style="padding:10px 16px;color:#64748b;font-size:12.5px;">{{ p['changed_at'] }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
-  {% else %}
-  <div style="text-align:center;padding:20px;color:#aaa;margin-bottom:24px;">No password changes yet.</div>
   {% endif %}
 
-  <!-- Bookings -->
-  <h2 style="margin-bottom:14px;">📋 Booking History</h2>
-  {% if bookings %}
-  <div style="overflow-x:auto;">
-    <table style="width:100%;border-collapse:collapse;font-size:14px;">
-      <thead>
-        <tr style="background:#e8f5e9;color:#2e7d32;">
-          <th style="padding:10px 14px;text-align:left;">#</th>
-          <th style="padding:10px 14px;text-align:left;">City</th>
-          <th style="padding:10px 14px;text-align:left;">Location</th>
-          <th style="padding:10px 14px;text-align:left;">Price</th>
-          <th style="padding:10px 14px;text-align:left;">Type</th>
-          <th style="padding:10px 14px;text-align:left;">Status</th>
-          <th style="padding:10px 14px;text-align:left;">Paid On</th>
-          <th style="padding:10px 14px;text-align:left;">Receipt</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for b in bookings %}
-        <tr style="border-bottom:1px solid #f0f0f0;">
-          <td style="padding:10px 14px;color:#aaa;">{{ b['id'] }}</td>
-          <td style="padding:10px 14px;">{{ b['city'] }}</td>
-          <td style="padding:10px 14px;">{{ b['location'] }}</td>
-          <td style="padding:10px 14px;color:#2e7d32;font-weight:bold;">₹ {{ "{:,.0f}".format(b['price']) }}</td>
-          <td style="padding:10px 14px;">
-            <span style="padding:3px 10px;border-radius:20px;font-size:12px;
-              background:{% if b['booking_type']=='predicted' %}#e3f2fd{% else %}#f3e5f5{% endif %};
-              color:{% if b['booking_type']=='predicted' %}#1565c0{% else %}#6a1b9a{% endif %};">
-              {{ b['booking_type'] }}
-            </span>
-          </td>
-          <td style="padding:10px 14px;">
-            <span style="padding:3px 10px;border-radius:20px;font-size:12px;
-              background:{% if b['status']=='confirmed' %}#e8f5e9{% elif b['status']=='cart' %}#fff8e1{% else %}#ffebee{% endif %};
-              color:{% if b['status']=='confirmed' %}#2e7d32{% elif b['status']=='cart' %}#f57f17{% else %}#c62828{% endif %};">
-              {{ b['status'] }}
-            </span>
-          </td>
-          <td style="padding:10px 14px;color:#888;font-size:12px;">{{ b['paid_at'][:10] if b['paid_at'] else '-' }}</td>
-          <td style="padding:10px 14px;">
-            {% if b['status'] == 'confirmed' %}
-            <a href="{{ url_for('receipt', booking_id=b['id']) }}" class="btn btn-secondary" style="padding:6px 12px;font-size:12px;">Receipt</a>
-            {% else %}
-            -
-            {% endif %}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% else %}
-  <div style="text-align:center;padding:20px;color:#aaa;">No bookings yet.</div>
-  {% endif %}
 </div>
 {% endblock %}

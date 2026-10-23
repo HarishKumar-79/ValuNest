@@ -12,15 +12,15 @@
   <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center;">
     <div style="display:flex;gap:8px;">
       <button onclick="setLayer('satellite')" id="btn_satellite"
-        style="padding:8px 18px;border-radius:20px;border:2px solid #2e7d32;background:#2e7d32;color:white;cursor:pointer;font-size:14px;font-weight:bold;">
+        style="padding:8px 18px;border-radius:20px;border:2px solid #4f46e5;background:#4f46e5;color:white;cursor:pointer;font-size:14px;font-weight:bold;">
         🛰 Satellite
       </button>
       <button onclick="setLayer('street')" id="btn_street"
-        style="padding:8px 18px;border-radius:20px;border:2px solid #c8e6c9;background:white;color:#2e7d32;cursor:pointer;font-size:14px;font-weight:bold;">
+        style="padding:8px 18px;border-radius:20px;border:2px solid #c7d2fe;background:white;color:#4f46e5;cursor:pointer;font-size:14px;font-weight:bold;">
         🗺 Street
       </button>
       <button onclick="setLayer('hybrid')" id="btn_hybrid"
-        style="padding:8px 18px;border-radius:20px;border:2px solid #c8e6c9;background:white;color:#2e7d32;cursor:pointer;font-size:14px;font-weight:bold;">
+        style="padding:8px 18px;border-radius:20px;border:2px solid #c7d2fe;background:white;color:#4f46e5;cursor:pointer;font-size:14px;font-weight:bold;">
         🌐 Hybrid
       </button>
     </div>
@@ -33,18 +33,18 @@
   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:12px;margin-bottom:18px;">
     {% for p in properties %}
     <div onclick="focusProperty({{ loop.index0 }})"
-         style="background:white;border:2px solid #c8e6c9;border-radius:14px;padding:14px;
+         style="background:white;border:2px solid #c7d2fe;border-radius:14px;padding:14px;
                 cursor:pointer;transition:all 0.2s;"
-         onmouseover="this.style.borderColor='#2e7d32';this.style.transform='translateY(-2px)'"
-         onmouseout="this.style.borderColor='#c8e6c9';this.style.transform='translateY(0)'">
+         onmouseover="this.style.borderColor='#4f46e5';this.style.transform='translateY(-2px)'"
+         onmouseout="this.style.borderColor='#c7d2fe';this.style.transform='translateY(0)'">
       <div style="font-size:20px;margin-bottom:6px;">🏠</div>
-      <div style="font-size:13px;font-weight:bold;color:#1b5e20;margin-bottom:2px;">{{ p.location }}</div>
+      <div style="font-size:13px;font-weight:bold;color:#4338ca;margin-bottom:2px;">{{ p.location }}</div>
       <div style="font-size:12px;color:#888;">{{ p.city }}</div>
-      <div style="font-size:14px;font-weight:bold;color:#2e7d32;margin-top:6px;">₹ {{ "{:,.0f}".format(p.price) }}</div>
+      <div style="font-size:14px;font-weight:bold;color:#4f46e5;margin-top:6px;">₹ {{ "{:,.0f}".format(p.price) }}</div>
       <div style="font-size:11px;color:#aaa;margin-top:3px;">{{ p.paid_at[:10] if p.paid_at else 'N/A' }}</div>
       <div style="margin-top:8px;display:flex;gap:6px;">
         <button onclick="event.stopPropagation();shareLocation({{ loop.index0 }})"
-          style="flex:1;padding:5px 0;background:#e8f5e9;color:#2e7d32;border:none;
+          style="flex:1;padding:5px 0;background:#f5f3ff;color:#4f46e5;border:none;
                  border-radius:8px;cursor:pointer;font-size:11px;font-weight:bold;">
           🔗 Share
         </button>
@@ -59,21 +59,21 @@
   </div>
 
   <!-- Map -->
-  <div id="map" style="width:100%;height:520px;border-radius:20px;border:2px solid #c8e6c9;overflow:hidden;"></div>
+  <div id="map" style="width:100%;height:520px;border-radius:20px;border:2px solid #c7d2fe;overflow:hidden;"></div>
 
   <!-- Share modal -->
   <div id="shareModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);
        z-index:9999;align-items:center;justify-content:center;">
     <div style="background:white;border-radius:20px;padding:28px;width:380px;max-width:90vw;">
-      <h2 style="font-size:18px;color:#1b5e20;margin-bottom:6px;">🔗 Share property location</h2>
+      <h2 style="font-size:18px;color:#4338ca;margin-bottom:6px;">🔗 Share property location</h2>
       <p id="shareAddr" style="font-size:14px;color:#888;margin-bottom:16px;"></p>
 
-      <div style="background:#f9fdf9;border:1.5px solid #c8e6c9;border-radius:12px;
+      <div style="background:#faf5ff;border:1.5px solid #c7d2fe;border-radius:12px;
                   padding:12px 14px;margin-bottom:16px;display:flex;align-items:center;gap:10px;">
         <input id="shareUrl" type="text" readonly
           style="flex:1;border:none;background:transparent;font-size:13px;color:#333;outline:none;">
         <button onclick="copyLink()"
-          style="padding:6px 14px;background:#2e7d32;color:white;border:none;
+          style="padding:6px 14px;background:#4f46e5;color:white;border:none;
                  border-radius:8px;cursor:pointer;font-size:13px;font-weight:bold;">
           Copy
         </button>
@@ -182,7 +182,7 @@ script.onload = function() {
   currentLayer.addTo(map);
 
   const houseIcon = L.divIcon({
-    html: `<div style="background:#2e7d32;color:white;border-radius:50% 50% 50% 0;
+    html: `<div style="background:#4f46e5;color:white;border-radius:50% 50% 50% 0;
                         width:38px;height:38px;display:flex;align-items:center;
                         justify-content:center;font-size:18px;border:3px solid white;
                         box-shadow:0 3px 10px rgba(0,0,0,0.5);transform:rotate(-45deg);">
@@ -212,9 +212,9 @@ script.onload = function() {
         .addTo(map)
         .bindPopup(`
           <div style="min-width:210px;font-family:Arial,sans-serif;">
-            <div style="font-size:15px;font-weight:bold;color:#1b5e20;margin-bottom:4px;">🏠 ${p.location}</div>
+            <div style="font-size:15px;font-weight:bold;color:#4338ca;margin-bottom:4px;">🏠 ${p.location}</div>
             <div style="font-size:12px;color:#666;margin-bottom:6px;">📍 ${p.city}</div>
-            <div style="font-size:17px;font-weight:bold;color:#2e7d32;margin-bottom:4px;">
+            <div style="font-size:17px;font-weight:bold;color:#4f46e5;margin-bottom:4px;">
               ₹ ${p.price.toLocaleString('en-IN')}
             </div>
             <div style="font-size:11px;color:#aaa;margin-bottom:10px;">
@@ -230,7 +230,7 @@ script.onload = function() {
                 📍 Google Maps
               </a>
               <button onclick="shareLocation(${i})"
-                style="flex:1;padding:6px;background:#2e7d32;color:white;border:none;
+                style="flex:1;padding:6px;background:#4f46e5;color:white;border:none;
                        border-radius:8px;cursor:pointer;font-size:12px;font-weight:bold;">
                 🔗 Share
               </button>
@@ -275,9 +275,9 @@ script.onload = function() {
     currentLayer.addTo(map);
     ['satellite','street','hybrid'].forEach(t => {
       const btn = document.getElementById('btn_'+t);
-      btn.style.background = t===type ? '#2e7d32' : 'white';
-      btn.style.color = t===type ? 'white' : '#2e7d32';
-      btn.style.borderColor = t===type ? '#2e7d32' : '#c8e6c9';
+      btn.style.background = t===type ? '#4f46e5' : 'white';
+      btn.style.color = t===type ? 'white' : '#4f46e5';
+      btn.style.borderColor = t===type ? '#4f46e5' : '#c7d2fe';
     });
   };
 

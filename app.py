@@ -32,6 +32,10 @@ model        = pickle.load(open(os.path.join(BASE,"model.pkl"),"rb"))
 feature_cols = pickle.load(open(os.path.join(BASE,"feature_cols.pkl"),"rb"))
 df           = pd.read_csv(CSV)
 CITIES       = sorted(df['City'].dropna().unique().tolist())
+LOCATIONS_BY_CITY = {
+    c: sorted(df[df['City'] == c]['Location'].dropna().unique().tolist())
+    for c in CITIES
+}
 
 ADMIN_EMAIL    = os.environ.get("ADMIN_EMAIL", "admin@house.com")
 ADMIN_PASSWORD = "admin123"
@@ -296,7 +300,21 @@ def any_auth_required(f):
 # ===== AUTH =====
 @app.route('/')
 def index():
-    if 'user_id' in session: return render_template('home.html')
+    if 'user_id' in session:
+        uid = session['user_id']
+        cart = db.get_user_bookings_by_status(uid, 'cart')
+        purchased = db.get_user_bookings_by_status(uid, 'confirmed')
+        inbox = db.get_user_messages(uid)
+        user = db.get_user_by_id(uid)
+        login_count = db.count_user_actions(uid, 'login')
+        return render_template('home.html',
+            cart_count=len(cart),
+            purchased_count=len(purchased),
+            message_count=len(inbox),
+            login_count=login_count,
+            user=user,
+            cart=cart,
+            purchased=purchased)
     return redirect(url_for('login'))
 
 @app.route('/register', methods=['GET','POST'])
@@ -338,6 +356,7 @@ def login():
                 session['user_id']=user['id']
                 session['user_name']=user['name']
                 session['user_photo']=user['photo'] or ''
+                session['user_email']=user['email']
                 db.create_login_log(user['id'], user['name'], 'login')
                 return redirect(url_for('index'))
         flash("Invalid email or password.","error")
@@ -617,20 +636,38 @@ def property_map():
 @app.route('/city', methods=['GET','POST'])
 @login_required
 def select_city():
-    if request.method=='POST':
-        session['city']=request.form['city']
+    flow = request.args.get('flow', '').strip()
+    if flow:
+        session['flow'] = flow
+    if request.method == 'POST':
+        session['city'] = request.form['city']
         return redirect(url_for('select_location'))
-    return render_template("city.html",cities=CITIES)
+    return render_template("city.html", cities=CITIES, flow=session.get('flow', ''))
 
 @app.route('/location', methods=['GET','POST'])
 @login_required
 def select_location():
-    city=session.get('city',CITIES[0])
-    locations=sorted(df[df['City']==city]['Location'].dropna().unique().tolist())
-    if request.method=='POST':
-        session['location']=request.form['location']
+    city = session.get('city', CITIES[0])
+    locations = LOCATIONS_BY_CITY.get(city, [])
+    if request.method == 'POST':
+        session['location'] = request.form['location']
+        if session.get('flow') == 'predict' or request.args.get('flow') == 'predict':
+            session.pop('flow', None)
+            return redirect(url_for('predict'))
         return redirect(url_for('choose_option'))
-    return render_template("location.html",city=city,locations=locations)
+    return render_template("location.html", city=city, locations=locations)
+
+@app.route('/set_city/<city>')
+@login_required
+def set_city(city):
+    if city in CITIES:
+        session['city'] = city
+        locs = LOCATIONS_BY_CITY.get(city, [])
+        session['location'] = locs[0] if locs else ''
+        flash(f"Active city set to {city}.", "success")
+    if request.args.get('flow') == 'predict' or request.args.get('next') == 'predict':
+        return redirect(url_for('predict'))
+    return redirect(request.referrer or url_for('index'))
 
 @app.route('/options')
 @login_required
@@ -640,9 +677,41 @@ def choose_option():
 @app.route('/predict', methods=['GET','POST'])
 @login_required
 def predict():
-    city=session.get('city','')
-    location=session.get('location','')
-    if request.method=='POST':
+    # Allow user to specify city/location via query param, form, or existing session
+    req_city = (request.form.get('city') or request.args.get('city') or '').strip()
+    req_loc = (request.form.get('location') or request.args.get('location') or '').strip()
+
+    if req_city and req_city in CITIES:
+        session['city'] = req_city
+    if req_loc:
+        session['location'] = req_loc
+
+    city = session.get('city', '')
+    location = session.get('location', '')
+
+    # If user accesses price prediction without any city in session:
+    if request.method == 'GET' and not city:
+        flash("Please select your city to get accurate property price estimates.", "info")
+        return redirect(url_for('select_city', flow='predict'))
+
+    city_locations = LOCATIONS_BY_CITY.get(city, [])
+
+    if request.method == 'POST':
+        city = (request.form.get('city') or session.get('city', '')).strip()
+        location = (request.form.get('location') or session.get('location', '')).strip()
+
+        if not city:
+            flash("Please choose a city for price prediction.", "error")
+            return render_template("predict.html", cities=CITIES, locations_by_city=LOCATIONS_BY_CITY,
+                                   city=city, location=location, locations=city_locations)
+        if not location:
+            flash("Please choose a location.", "error")
+            return render_template("predict.html", cities=CITIES, locations_by_city=LOCATIONS_BY_CITY,
+                                   city=city, location=location, locations=city_locations)
+
+        session['city'] = city
+        session['location'] = location
+
         try:
             area=float(request.form['area'])
             bedrooms=float(request.form['bedrooms'])
@@ -657,7 +726,9 @@ def predict():
             club=float(request.form.get('club',0))
         except ValueError:
             flash("Please enter valid numbers.","error")
-            return render_template("predict.html",city=city,location=location)
+            return render_template("predict.html", cities=CITIES, locations_by_city=LOCATIONS_BY_CITY,
+                                   city=city, location=location, locations=LOCATIONS_BY_CITY.get(city, []))
+
         row={col:0 for col in feature_cols}
         row['Area']=area; row['No. of Bedrooms']=bedrooms; row['Resale']=resale
         row['CarParking']=parking; row['LiftAvailable']=lift; row['Gymnasium']=gym
@@ -667,14 +738,17 @@ def predict():
         if city_col in row: row[city_col]=1
         pred=model.predict(pd.DataFrame([row])[feature_cols])[0]
         if pred<100000:
-            return render_template("predict.html",city=city,location=location,
+            return render_template("predict.html", cities=CITIES, locations_by_city=LOCATIONS_BY_CITY,
+                                   city=city, location=location, locations=LOCATIONS_BY_CITY.get(city, []),
                                    error="Could not estimate a valid price. Please try different values.")
         low=round(pred*0.92); high=round(pred*1.08)
         session['predicted_price']=round(pred)
         session['payment_from']='predict'
         session['booking_type']='predicted'
         return redirect(url_for('result',pred=round(pred),low=low,high=high))
-    return render_template("predict.html",city=city,location=location)
+
+    return render_template("predict.html", cities=CITIES, locations_by_city=LOCATIONS_BY_CITY,
+                           city=city, location=location, locations=city_locations)
 
 @app.route('/result')
 @login_required
@@ -960,33 +1034,58 @@ def admin_logout():
 def admin_dashboard():
     users = db.get_all_users()
     bookings = db.get_all_bookings()
-    recent_logs = db.get_recent_login_logs(10)
-    older_logs = db.get_older_login_logs(10)
-    confirmed=[b for b in bookings if b['status']=='confirmed']
-    cart_items=[b for b in bookings if b['status']=='cart']
-    total_revenue=sum(b['price'] for b in confirmed)
-    active_users=sum(1 for u in users if u['status']=='active')
-    blocked_users=sum(1 for u in users if u['status']=='blocked')
+    recent_logs = db.get_recent_login_logs(8)
+    confirmed = [b for b in bookings if b['status'] == 'confirmed']
+    total_revenue = sum(b['price'] for b in confirmed)
+    active_users = sum(1 for u in users if u['status'] == 'active')
+    blocked_users = sum(1 for u in users if u['status'] == 'blocked')
+
+    # Calculate per-user statistics for clean directory display
+    users_with_stats = []
+    for u in users:
+        u_dict = dict(u)
+        u_bookings = [b for b in bookings if b['user_id'] == u['id']]
+        u_dict['cart_count'] = sum(1 for b in u_bookings if b['status'] == 'cart')
+        u_dict['confirmed_count'] = sum(1 for b in u_bookings if b['status'] == 'confirmed')
+        u_dict['total_spent'] = sum(b['price'] for b in u_bookings if b['status'] == 'confirmed')
+        users_with_stats.append(u_dict)
+
     return render_template("admin_dashboard.html",
-        users=users,bookings=bookings,confirmed=confirmed,cart_items=cart_items,
+        users=users_with_stats,
         recent_logs=recent_logs,
-        older_logs=older_logs,
-        total_users=len(users),total_bookings=len(bookings),
-        total_revenue=total_revenue,active_users=active_users,blocked_users=blocked_users)
+        total_users=len(users),
+        total_bookings=len(bookings),
+        total_revenue=total_revenue,
+        active_users=active_users,
+        blocked_users=blocked_users)
 
 @app.route('/admin/view_user/<int:user_id>')
 @admin_required
 def view_user(user_id):
-    user = db.get_user_by_id(user_id)
+    user_row = db.get_user_by_id(user_id)
+    if not user_row:
+        flash("User not found.", "error")
+        return redirect(url_for('admin_dashboard'))
+    user = dict(user_row)
     bookings = db.get_all_bookings()
     user_bookings = [b for b in bookings if b['user_id'] == user_id]
+    cart_items = [b for b in user_bookings if b['status'] == 'cart']
+    confirmed = [b for b in user_bookings if b['status'] == 'confirmed']
+    total_revenue = sum(b['price'] for b in confirmed)
     pw_history = db.get_password_history(user_id)
     login_logs = db.get_user_login_logs(user_id)
     login_count = db.count_user_actions(user_id, 'login')
     logout_count = db.count_user_actions(user_id, 'logout')
-    return render_template("view_user.html",user=user,bookings=user_bookings,
-                           pw_history=pw_history,login_logs=login_logs,
-                           login_count=login_count,logout_count=logout_count)
+    return render_template("view_user.html",
+                           user=user,
+                           bookings=user_bookings,
+                           cart_items=cart_items,
+                           confirmed=confirmed,
+                           total_revenue=total_revenue,
+                           pw_history=pw_history,
+                           login_logs=login_logs,
+                           login_count=login_count,
+                           logout_count=logout_count)
 
 @app.route('/admin/edit_user/<int:user_id>', methods=['GET','POST'])
 @admin_required
@@ -1017,7 +1116,7 @@ def edit_user(user_id):
 def remove_booking(booking_id):
     db.delete_booking(booking_id)
     flash("Booking removed.","success")
-    return redirect(url_for('admin_dashboard'))
+    return redirect(request.referrer or url_for('admin_dashboard'))
 
 @app.route('/admin/edit_booking/<int:id>', methods=['GET','POST'])
 @admin_required
@@ -1031,7 +1130,7 @@ def edit_booking(id):
             status=request.form['status'],
         )
         flash("Booking updated.","success")
-        return redirect(url_for('admin_dashboard'))
+        return redirect(request.form.get('next') or url_for('admin_dashboard'))
     booking = db.get_booking_by_id(id)
     return render_template("edit_booking.html",booking=booking)
 

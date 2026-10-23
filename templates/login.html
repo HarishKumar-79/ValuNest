@@ -1,23 +1,27 @@
 {% extends "base.html" %}
-{% block title %}Sign In — HomeFinder{% endblock %}
+{% block title %}Sign In — ValuNest{% endblock %}
 
 {% block content %}
-<div class="auth-wrapper">
-  <div class="auth-card">
-    <div class="auth-header">
-      <div class="auth-brand-icon">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+<div class="auth-wrapper" style="min-height: calc(100vh - 120px); display: flex; align-items: center; justify-content: center; padding: 40px 20px; background: radial-gradient(circle at 50% 10%, #f5f3ff 0%, #f8fafc 80%);">
+  <div class="auth-card" style="width: 100%; max-width: 450px; background: #ffffff; border-radius: 24px; border: 1.5px solid #c7d2fe; box-shadow: 0 24px 50px -15px rgba(99, 102, 241, 0.16), 0 4px 16px rgba(0, 0, 0, 0.04); padding: 42px 38px; position: relative; overflow: hidden;">
+    
+    <!-- Top Blue Accent Glow -->
+    <div style="position: absolute; top: 0; left: 0; right: 0; height: 5px; background: linear-gradient(90deg, #4338ca, #6366f1, #818cf8, #6366f1);"></div>
+
+    <div class="auth-header" style="text-align: center; margin-bottom: 28px;">
+      <div class="auth-brand-icon" style="width: 58px; height: 58px; margin: 0 auto 16px; border-radius: 16px; background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%); border: 1.5px solid #c7d2fe; display: flex; align-items: center; justify-content: center; color: #6366f1; box-shadow: 0 8px 20px rgba(99, 102, 241, 0.15);">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" style="width: 32px; height: 32px;">
           <path d="M11.47 3.84a.75.75 0 011.06 0l8.69 8.69a.75.75 0 11-1.06 1.06l-.96-.96v6.87A2.25 2.25 0 0116.95 21.75H7.05a2.25 2.25 0 01-2.25-2.25V12.63l-.96.96a.75.75 0 01-1.06-1.06l8.69-8.69z" />
         </svg>
       </div>
-      <h1 class="auth-title">Welcome back</h1>
-      <p class="auth-subtitle">Sign in to your HomeFinder account</p>
+      <h1 class="auth-title heading-light-to-bright" style="font-size: 26px; font-weight: 800; color: #0f172a; margin-bottom: 6px; letter-spacing: -0.5px;">Welcome to ValuNest</h1>
+      <p class="auth-subtitle" style="color: #64748b; font-size: 14px; margin: 0;">Sign in to your account to explore properties & predict prices</p>
     </div>
 
     {% if firebase_enabled %}
-    <div class="oauth-section">
-      <button type="button" class="btn btn-oauth" onclick="signInWithGoogle('user')">
-        <svg class="google-svg" viewBox="0 0 24 24">
+    <div class="oauth-section" style="margin-bottom: 20px;">
+      <button type="button" class="btn btn-oauth" onclick="signInWithGoogle('user')" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 12px; padding: 12px 16px; border-radius: 12px; border: 1.5px solid #c7d2fe; background: #ffffff; color: #1e293b; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s ease;">
+        <svg class="google-svg" viewBox="0 0 24 24" style="width: 20px; height: 20px;">
           <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/>
           <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.24 21.3 7.31 24 12 24z"/>
           <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.17 0 9.99 0 12s.46 3.83 1.26 5.42l4.02-3.15z"/>
@@ -26,13 +30,15 @@
         <span>Continue with Google</span>
       </button>
     </div>
-    <div class="auth-divider">
-      <span>or continue with email</span>
+    <div class="auth-divider" style="display: flex; align-items: center; text-align: center; margin: 20px 0; color: #94a3b8; font-size: 13px;">
+      <span style="flex: 1; border-bottom: 1px solid #e2e8f0;"></span>
+      <span style="padding: 0 14px; font-weight: 500;">or sign in with email</span>
+      <span style="flex: 1; border-bottom: 1px solid #e2e8f0;"></span>
     </div>
     {% elif oauth_enabled %}
-    <div class="oauth-section">
-      <a href="{{ url_for('google_auth_start') }}" class="btn btn-oauth">
-        <svg class="google-svg" viewBox="0 0 24 24">
+    <div class="oauth-section" style="margin-bottom: 20px;">
+      <a href="{{ url_for('google_auth_start') }}" class="btn btn-oauth" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 12px; padding: 12px 16px; border-radius: 12px; border: 1.5px solid #c7d2fe; background: #ffffff; color: #1e293b; font-size: 14px; font-weight: 600; text-decoration: none;">
+        <svg class="google-svg" viewBox="0 0 24 24" style="width: 20px; height: 20px;">
           <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/>
           <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.24 21.3 7.31 24 12 24z"/>
           <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.17 0 9.99 0 12s.46 3.83 1.26 5.42l4.02-3.15z"/>
@@ -41,33 +47,35 @@
         <span>Continue with Google</span>
       </a>
     </div>
-    <div class="auth-divider">
-      <span>or continue with email</span>
+    <div class="auth-divider" style="display: flex; align-items: center; text-align: center; margin: 20px 0; color: #94a3b8; font-size: 13px;">
+      <span style="flex: 1; border-bottom: 1px solid #e2e8f0;"></span>
+      <span style="padding: 0 14px; font-weight: 500;">or sign in with email</span>
+      <span style="flex: 1; border-bottom: 1px solid #e2e8f0;"></span>
     </div>
     {% endif %}
 
     <form method="post" class="auth-form" onsubmit="handleFormSubmit(this)">
-      <div class="form-group">
-        <label for="loginEmail" class="form-label">Email address</label>
+      <div class="form-group" style="margin-bottom: 20px;">
+        <label for="loginEmail" class="form-label" style="display: block; font-size: 13.5px; font-weight: 600; color: #312e81; margin-bottom: 8px;">Email Address</label>
         <div class="input-wrapper">
-          <input type="email" id="loginEmail" name="email" class="form-input" placeholder="name@example.com" autocomplete="email" required>
-          <span class="input-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <input type="email" id="loginEmail" name="email" class="form-input" placeholder="name@example.com" autocomplete="email" required style="border-color: #c7d2fe; font-size: 14px;">
+          <span class="input-icon" style="color: #6366f1;">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 18px; height: 18px;">
               <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
             </svg>
           </span>
         </div>
       </div>
 
-      <div class="form-group">
-        <div class="label-row">
-          <label for="loginPwd" class="form-label">Password</label>
-          <a href="{{ url_for('forgot_password') }}" class="forgot-link">Forgot password?</a>
+      <div class="form-group" style="margin-bottom: 24px;">
+        <div class="label-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <label for="loginPwd" class="form-label" style="font-size: 13.5px; font-weight: 600; color: #312e81; margin-bottom: 0;">Password</label>
+          <a href="{{ url_for('forgot_password') }}" class="forgot-link" style="font-size: 12.5px; color: #6366f1; font-weight: 600; text-decoration: none;">Forgot password?</a>
         </div>
         <div class="input-wrapper">
-          <input type="password" name="password" id="loginPwd" class="form-input password-input" placeholder="Enter your password" autocomplete="current-password" required>
-          <button type="button" class="pwd-toggle-btn" onclick="togglePwd('loginPwd','eyeLogin')" aria-label="Toggle password visibility">
-            <svg id="eyeLogin" class="pwd-eye-svg" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+          <input type="password" name="password" id="loginPwd" class="form-input password-input" placeholder="Enter your password" autocomplete="current-password" required style="border-color: #c7d2fe; font-size: 14px;">
+          <button type="button" class="pwd-toggle-btn" onclick="togglePwd('loginPwd','eyeLogin')" aria-label="Toggle password visibility" style="color: #6366f1;">
+            <svg id="eyeLogin" class="pwd-eye-svg" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 18px; height: 18px;">
               <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
               <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
@@ -75,18 +83,25 @@
         </div>
       </div>
 
-      <button type="submit" class="btn btn-primary btn-full submit-btn">
-        <span class="btn-text">Sign in</span>
+      <button type="submit" class="btn btn-primary btn-full submit-btn" style="background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); box-shadow: 0 8px 24px rgba(99, 102, 241, 0.32); padding: 13px; font-size: 15px; font-weight: 700; border-radius: 12px; border: none; color: #ffffff; cursor: pointer;">
+        <span class="btn-text">Sign in to ValuNest</span>
         <span class="btn-spinner"></span>
-        <svg class="btn-arrow" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+        <svg class="btn-arrow" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 18px; height: 18px; margin-left: 6px;">
           <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
         </svg>
       </button>
     </form>
 
-    <div class="auth-footer">
-      Don't have an account? <a href="{{ url_for('register') }}" class="auth-link">Create account</a>
+    <div class="auth-footer" style="text-align: center; margin-top: 24px; font-size: 13.5px; color: #64748b;">
+      Don't have an account? <a href="{{ url_for('register') }}" class="auth-link" style="color: #6366f1; font-weight: 700; text-decoration: none;">Create an account</a>
     </div>
+
+    <!-- Admin portal link & Security assurance -->
+    <div style="margin-top: 26px; padding-top: 20px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #94a3b8;">
+      <span>🔒 256-Bit SSL Secured</span>
+      <a href="{{ url_for('admin_login') }}" style="color: #3b82f6; text-decoration: none; font-weight: 600;">Admin Login →</a>
+    </div>
+
   </div>
 </div>
 {% endblock %}

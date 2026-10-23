@@ -1,11 +1,18 @@
 {% extends "base.html" %}
-{% block title %}Predict Price — HomeFinder{% endblock %}
+{% block title %}Predict Price — ValuNest{% endblock %}
 
 {% block content %}
-<div class="container wide" style="margin-top:40px;">
-  <div class="breadcrumb">{{ city }} › {{ location }} › <span>Predict price</span></div>
-  <h1>Property details</h1>
-  <p class="subtitle">Fill in the details below to get your AI-powered price estimate</p>
+<div class="container wide" style="margin-top:30px;">
+  <div class="breadcrumb">
+    <a href="{{ url_for('index') }}">Dashboard</a> › 
+    {% if city %}<a href="{{ url_for('select_city') }}">{{ city }}</a> › {% endif %}
+    <span>AI Price Predictor</span>
+  </div>
+  
+  <div style="margin-bottom:24px;">
+    <h1 style="margin-bottom:6px;">Property Valuation Calculator</h1>
+    <p class="subtitle" style="margin-bottom:0;">Enter property parameters below to generate machine-learning valuation estimates</p>
+  </div>
 
   {% if error %}
   <div class="flash error" style="margin-bottom:24px;">
@@ -13,61 +20,108 @@
   </div>
   {% endif %}
 
-  <form method="post" class="predict-form">
-    <div class="form-row">
-      <div class="form-group">
-        <label for="inputArea">Area (sqft)</label>
-        <div class="input-wrapper">
-          <input type="number" id="inputArea" name="area" class="form-input" placeholder="e.g. 1200" min="100" required>
+  <form method="post" class="predict-form" id="predictForm">
+
+    <!-- STEP 1: CITY & LOCALITY SELECTION -->
+    <div class="form-section-card" style="background:#eff6ff;border:1.5px solid #bfdbfe;border-radius:18px;padding:24px;margin-bottom:28px;">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+        <span style="font-size:26px;">🏙️</span>
+        <div>
+          <h3 style="margin:0;font-size:16px;font-weight:700;color:#1e40af;">1. Target City & Neighbourhood</h3>
+          <p style="margin:2px 0 0;font-size:13px;color:#3b82f6;">Select city and exact locality to apply accurate micro-market pricing</p>
         </div>
       </div>
-      <div class="form-group">
-        <label for="inputBedrooms">Bedrooms</label>
-        <div class="input-wrapper">
-          <input type="number" id="inputBedrooms" name="bedrooms" class="form-input" placeholder="e.g. 3" min="1" max="9" required>
+      <div class="form-row">
+        <div class="form-group" style="margin-bottom:0;">
+          <label for="selectCity" style="font-weight:600;color:#1e3a8a;">Target City *</label>
+          <div class="input-wrapper">
+            <select id="selectCity" name="city" class="form-input" required onchange="handleCityChange(this.value)">
+              <option value="">-- Choose City --</option>
+              {% for c in cities %}
+              <option value="{{ c }}" {% if c == city %}selected{% endif %}>{{ c }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:0;">
+          <label for="selectLocation" style="font-weight:600;color:#1e3a8a;">Neighbourhood / Locality *</label>
+          <div class="input-wrapper">
+            <select id="selectLocation" name="location" class="form-input" required>
+              <option value="">-- Select Locality --</option>
+              {% for loc in locations %}
+              <option value="{{ loc }}" {% if loc == location %}selected{% endif %}>{{ loc }}</option>
+              {% endfor %}
+            </select>
+          </div>
         </div>
       </div>
     </div>
 
-    <div class="form-row">
-      <div class="form-group">
-        <label for="inputBathrooms">Bathrooms</label>
-        <div class="input-wrapper">
-          <input type="number" id="inputBathrooms" name="bathrooms" class="form-input" placeholder="e.g. 2" min="1" max="9" required>
+    <!-- STEP 2: PROPERTY CONFIGURATION -->
+    <div style="margin-bottom:28px;">
+      <h3 style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:16px;">2. Property Specifications</h3>
+      
+      <div class="form-row">
+        <div class="form-group">
+          <label for="inputArea">Built-up Area (sq ft) *</label>
+          <div class="input-wrapper">
+            <input type="number" id="inputArea" name="area" class="form-input" placeholder="e.g. 1250" min="100" max="25000" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="inputBedrooms">Bedrooms (BHK) *</label>
+          <div class="input-wrapper">
+            <input type="number" id="inputBedrooms" name="bedrooms" class="form-input" placeholder="e.g. 3" min="1" max="9" required>
+          </div>
         </div>
       </div>
-      <div class="form-group">
-        <label for="selectResale">Property type</label>
-        <select id="selectResale" name="resale" class="form-input">
-          <option value="0">New Construction</option>
-          <option value="1">Resale Property</option>
-        </select>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="inputBathrooms">Bathrooms *</label>
+          <div class="input-wrapper">
+            <input type="number" id="inputBathrooms" name="bathrooms" class="form-input" placeholder="e.g. 2" min="1" max="9" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="selectResale">Property Type</label>
+          <div class="input-wrapper">
+            <select id="selectResale" name="resale" class="form-input">
+              <option value="0">New Construction (Direct from Builder)</option>
+              <option value="1">Resale Property</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="selectParking">Dedicated Car Parking</label>
+          <div class="input-wrapper">
+            <select id="selectParking" name="parking" class="form-input">
+              <option value="1">Available</option>
+              <option value="0">Not Available</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="selectLift">Elevator / Lift Available</label>
+          <div class="input-wrapper">
+            <select id="selectLift" name="lift" class="form-input">
+              <option value="1">Available</option>
+              <option value="0">Not Available</option>
+            </select>
+          </div>
+        </div>
       </div>
     </div>
 
-    <div class="form-row">
-      <div class="form-group">
-        <label for="selectParking">Car parking</label>
-        <select id="selectParking" name="parking" class="form-input">
-          <option value="1">Available</option>
-          <option value="0">Not available</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label for="selectLift">Elevator / Lift</label>
-        <select id="selectLift" name="lift" class="form-input">
-          <option value="1">Available</option>
-          <option value="0">Not available</option>
-        </select>
-      </div>
-    </div>
-
-    <!-- AMENITIES SECTION -->
-    <div class="amenities-container">
+    <!-- STEP 3: AMENITIES SECTION -->
+    <div class="amenities-container" style="margin-bottom:32px;">
       <div class="amenities-header">
         <div>
-          <h3 class="amenities-title">Select Amenities</h3>
-          <p class="amenities-subtitle">Choose the premium facilities available in this property</p>
+          <h3 class="amenities-title">3. Society Amenities</h3>
+          <p class="amenities-subtitle">Check all premium community features available in this project</p>
         </div>
         <span class="amenities-badge" id="selectedCountBadge">0 Selected</span>
       </div>
@@ -76,7 +130,7 @@
         <!-- Gymnasium Card -->
         <label class="amenity-card">
           <input type="checkbox" name="gym" value="1" class="amenity-checkbox" onchange="updateAmenitiesState(this)">
-          <div class="amenity-card-content" tabindex="0" role="checkbox" aria-checked="false" keydown="handleAmenityKeydown(event, this)">
+          <div class="amenity-card-content" tabindex="0" role="checkbox" aria-checked="false" onkeydown="handleAmenityKeydown(event, this)">
             <div class="amenity-icon-wrapper">
               <span class="amenity-icon">🏋️‍♂️</span>
             </div>
@@ -95,13 +149,13 @@
         <!-- Swimming Pool Card -->
         <label class="amenity-card">
           <input type="checkbox" name="pool" value="1" class="amenity-checkbox" onchange="updateAmenitiesState(this)">
-          <div class="amenity-card-content" tabindex="0" role="checkbox" aria-checked="false" keydown="handleAmenityKeydown(event, this)">
+          <div class="amenity-card-content" tabindex="0" role="checkbox" aria-checked="false" onkeydown="handleAmenityKeydown(event, this)">
             <div class="amenity-icon-wrapper">
               <span class="amenity-icon">🏊‍♂️</span>
             </div>
             <div class="amenity-details">
               <span class="amenity-name">Swimming Pool</span>
-              <span class="amenity-desc">Temperature-controlled pool</span>
+              <span class="amenity-desc">Lap & recreational pool</span>
             </div>
             <div class="amenity-check-indicator">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
@@ -114,7 +168,7 @@
         <!-- 24x7 Security Card -->
         <label class="amenity-card">
           <input type="checkbox" name="security" value="1" class="amenity-checkbox" onchange="updateAmenitiesState(this)">
-          <div class="amenity-card-content" tabindex="0" role="checkbox" aria-checked="false" keydown="handleAmenityKeydown(event, this)">
+          <div class="amenity-card-content" tabindex="0" role="checkbox" aria-checked="false" onkeydown="handleAmenityKeydown(event, this)">
             <div class="amenity-icon-wrapper">
               <span class="amenity-icon">🛡️</span>
             </div>
@@ -133,13 +187,13 @@
         <!-- Power Backup Card -->
         <label class="amenity-card">
           <input type="checkbox" name="power" value="1" class="amenity-checkbox" onchange="updateAmenitiesState(this)">
-          <div class="amenity-card-content" tabindex="0" role="checkbox" aria-checked="false" keydown="handleAmenityKeydown(event, this)">
+          <div class="amenity-card-content" tabindex="0" role="checkbox" aria-checked="false" onkeydown="handleAmenityKeydown(event, this)">
             <div class="amenity-icon-wrapper">
               <span class="amenity-icon">⚡</span>
             </div>
             <div class="amenity-details">
               <span class="amenity-name">Power Backup</span>
-              <span class="amenity-desc">100% generator backup</span>
+              <span class="amenity-desc">100% generator power backup</span>
             </div>
             <div class="amenity-check-indicator">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
@@ -152,7 +206,7 @@
         <!-- Club House Card -->
         <label class="amenity-card">
           <input type="checkbox" name="club" value="1" class="amenity-checkbox" onchange="updateAmenitiesState(this)">
-          <div class="amenity-card-content" tabindex="0" role="checkbox" aria-checked="false" keydown="handleAmenityKeydown(event, this)">
+          <div class="amenity-card-content" tabindex="0" role="checkbox" aria-checked="false" onkeydown="handleAmenityKeydown(event, this)">
             <div class="amenity-icon-wrapper">
               <span class="amenity-icon">🏛️</span>
             </div>
@@ -170,9 +224,10 @@
       </div>
     </div>
 
+    <!-- ACTION BUTTONS -->
     <div class="form-actions" style="display:flex;gap:16px;margin-top:32px;">
-      <a href="{{ url_for('choose_option') }}" class="btn btn-secondary" style="flex:1;text-align:center;">← Back</a>
-      <button type="submit" class="btn btn-primary" style="flex:2;">Get price estimate →</button>
+      <a href="{{ url_for('index') }}" class="btn btn-secondary" style="flex:1;text-align:center;">← Back to Dashboard</a>
+      <button type="submit" class="btn btn-primary" style="flex:2;">Calculate AI Valuation →</button>
     </div>
   </form>
 </div>
@@ -180,6 +235,24 @@
 
 {% block scripts %}
 <script>
+const locationsData = {{ locations_by_city|tojson }};
+
+function handleCityChange(selectedCity) {
+  const locSelect = document.getElementById('selectLocation');
+  locSelect.innerHTML = '<option value="">-- Select Locality --</option>';
+  if (selectedCity && locationsData[selectedCity]) {
+    locationsData[selectedCity].forEach(loc => {
+      const opt = document.createElement('option');
+      opt.value = loc;
+      opt.textContent = loc;
+      locSelect.appendChild(opt);
+    });
+    if (locationsData[selectedCity].length > 0) {
+      locSelect.selectedIndex = 1;
+    }
+  }
+}
+
 function updateAmenitiesState(input) {
   const cardContent = input.nextElementSibling;
   if (!cardContent) return;
@@ -192,7 +265,6 @@ function updateAmenitiesState(input) {
     cardContent.setAttribute('aria-checked', 'false');
   }
 
-  // Update selected count badge
   const checkedCount = document.querySelectorAll('.amenity-checkbox:checked').length;
   const badge = document.getElementById('selectedCountBadge');
   if (badge) {
@@ -216,7 +288,6 @@ function handleAmenityKeydown(event, el) {
   }
 }
 
-// Ensure initial state synchronization on page load
 document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.amenity-checkbox').forEach(input => {
     updateAmenitiesState(input);
